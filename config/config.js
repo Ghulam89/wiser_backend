@@ -1,7 +1,7 @@
 module.exports = {
     HOST: "localhost",
     //  HOST: "api.shopzone.com.au",
-    PORT: "8000",
+    PORT: "5000",
       // USER: "shopzone_api", 
     USER: "root",
       // PASSWORD: "shopzone_api",  

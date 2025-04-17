@@ -3,13 +3,36 @@ const { Op } = require('sequelize');
 const { JWT_SECRET } = require('../config/config.js');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const  nodemailer = require('nodemailer');
 // create main model
 const User = db.user;
 
-// 1.create product
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "gm6681328@gmail.com",
+        pass: "ptpatylqsrszlqtq", 
+    },
+    tls: {
+        rejectUnauthorized: false 
+    }
+});
+
+const generateOTP = () => {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
 const createData = async (req, res) => {
     try {
         const lowerCaseEmail = req.body.email?.toLowerCase();
+
+
+        console.log(req.body.email);
+        
 
         if (!req.body.email) {
             return res.status(400).json({
@@ -25,8 +48,6 @@ const createData = async (req, res) => {
             });
         }
 
-     
-
         const email = await User.findOne({
             where: { email: lowerCaseEmail }
         });
@@ -38,28 +59,55 @@ const createData = async (req, res) => {
             });
         }
 
-        const phone = await User.findOne({
-            where: { phone: req.body.phone }
-        });
-
-        if (phone && req.body.phone) {
-            return res.status(400).json({
-                message: "Phone already exists",
-                status: 'fail',
+        if (req.body.phone) {
+            const phone = await User.findOne({
+                where: { phone: req.body.phone }
             });
-        }
 
-        // Hash the password with bcrypt
+            if (phone) {
+                return res.status(400).json({
+                    message: "Phone number already exists",
+                    status: 'fail',
+                });
+            }
+        }
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-
+        const otp = generateOTP();
+        
         let data = await User.create({ 
             ...req.body, 
             password: hashedPassword, 
-            email: lowerCaseEmail 
+            email: lowerCaseEmail,
         });
 
         const token = jwt.sign({ id: data?.id }, JWT_SECRET, { expiresIn: '48h' });
+
+        const emailTemplateWithOTP = `
+            <div>
+                <h2>Thank You for Your Registration</h2>
+                <p>Your account has been successfully created.</p>
+                <p>Your verification code is: <strong>${otp}</strong></p>
+                <p>This code will expire in 10 minutes.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+            </div>
+        `;
+
+        const mailOptions = {
+            from: 'gm6681328@gmail.com',
+            to: data?.email,
+            subject: 'Your Verification Code',
+            html: emailTemplateWithOTP
+        };
+
+        // Send email with OTP
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+            } else {
+                console.log('Email sent:', info.response);
+            }
+        });
 
         res.status(200).json({
             status: 'success',
@@ -73,14 +121,6 @@ const createData = async (req, res) => {
         });
     }
 };
-
-
-
-
-
-
-
-
 
 // 2.get all products
 const getAllData = async (req, res) => {
@@ -158,47 +198,60 @@ const getDataById = async (req, res) => {
 
 // 3.get product by id
 const loginData = async (req, res) => {
-
-
     try {
-        let email = req.body.email
+        const { email, password } = req.body;
 
-        let emailData = await User.findOne({
-            where: { email: email }
-        })
-
-        if(emailData){
-
-            const token = jwt.sign({ id: emailData?.id }, JWT_SECRET , { expiresIn: '48h' });
-
-            if(req.body.password===emailData.password){
-                return res.status(200).json({
-                    status: 'ok',
-                    message:'Login successfully!',
-                    data: emailData,
-                    token
-                })
-            }else{
-                return res.status(400).json({
-                    status: 'fail',
-                    message: 'Invalid password'
-                })
-    
-        }
-        }else{
+        if (!email || !password) {
             return res.status(400).json({
                 status: 'fail',
-                message: 'Invalid email'
-            })
+                message: 'Email and password are required'
+            });
         }
 
-    } catch (err) {
-        res.status(500).json({
-            error: err.message
-        })
-    }
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT secret is not configured');
+        }
 
-}
+        const user = await User.findOne({ where: { email } });
+
+        if (!user) {
+            return res.status(401).json({
+                status: 'fail',
+                message: 'Invalid credentials'
+            });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                status: 'fail',
+                message: 'Invalid credentials'
+            });
+        }
+
+        const token = jwt.sign(
+            { id: user.id }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '48h' }
+        );
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Login successful',
+            data:user,
+            token
+        });
+
+    } catch (err) {
+        console.error('Login error:', err);
+        return res.status(500).json({
+            status: 'error',
+            message: err.message || 'Internal server error'
+        });
+    }
+};
+
 
 
 

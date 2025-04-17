@@ -6,7 +6,7 @@ module.exports={
     upload: multer({
         storage: multer.diskStorage({
             destination: function (req, file, callBack){
-                callBack(null, 'Images/')     // './public/images/' directory name where save the file
+                callBack(null, 'Images/')
             },
             filename: function (req, file, callBack) {
                 let filename=Date.now()+path.extname(file.originalname)
@@ -14,17 +14,17 @@ module.exports={
             },
             
         }),
-        // limits:{fieldSize:'100000'},
-        // filefilter: (req, file, callBack) => {
-        //     const fileTypes=/jpeg|jpg|png|gif/
-        //     const mimeType=fileTypes.test(file.mimetype)
-        //     const extname=fileTypes.test(path.extname(file.originalname))
+        limits:{fieldSize:'100000'},
+        filefilter: (req, file, callBack) => {
+            const fileTypes=/jpeg|jpg|png|gif/
+            const mimeType=fileTypes.test(file.mimetype)
+            const extname=fileTypes.test(path.extname(file.originalname))
 
-        //     if(mimeType && extname){
-        //         return(null,true)
-        //     }
-        //     callBack('Give proper file type to upload')
+            if(mimeType && extname){
+                return(null,true)
+            }
+            callBack('Give proper file type to upload')
             
-        // }
+        }
     })
 }
