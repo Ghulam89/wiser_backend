@@ -13,8 +13,8 @@ module.exports = {
     sessionSecret: "hfhahhafajuamfaafamdfarnfnayrefabyfamfhuaeahfa", 
     emailUser: "wolfstech25@gmail.com", 
     emailPassword: "gsjsprtdyhrhlasa",
-    // url: "http://localhost:8000/", 
-    url: "https://api.shopzone.com.au/",
+    url: "http://localhost:5000", 
+    // url: "https://api.shopzone.com.au/",
   
     pool: {
       max: 5,

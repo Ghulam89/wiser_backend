@@ -116,26 +116,18 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.STRING,
             allowNull: true,
         },
-        lat:{
+        otp: {
             type: DataTypes.STRING,
             allowNull: true,
         },
-        lng:{
-            type: DataTypes.STRING,
+        otpExpires: {
+            type: DataTypes.DATE,
             allowNull: true,
         },
-        city:{
-            type: DataTypes.STRING,
-            allowNull: true,
+        isVerified: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false,
         },
-        country:{
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
-        postalCode:{
-            type: DataTypes.STRING,
-            allowNull: true,
-        }, 
     }, {
         underscored: false,
         timestamps: true, 

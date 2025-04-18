@@ -3,11 +3,12 @@ const app = express();
 const port = 5000;
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-
+require('dotenv').config();
 const bodyParser = require("body-parser");
 // const db = require("./db/db");
 
 app.use(express.static("public"));
+app.use('/images', express.static('images'));
 // app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(bodyParser.urlencoded({ extended: true }));
