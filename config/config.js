@@ -1,26 +1,20 @@
 module.exports = {
-    HOST: "localhost",
-    //  HOST: "api.shopzone.com.au",
-    PORT: "5000",
-      // USER: "shopzone_api", 
-    USER: "root",
-      // PASSWORD: "shopzone_api",  
-    PASSWORD: "",
-      DB: "wiser_api",
-    // DB: "shopzone", 
-    dialect: "mysql",
-    JWT_SECRET: "mysecretkey",
-    sessionSecret: "hfhahhafajuamfaafamdfarnfnayrefabyfamfhuaeahfa", 
-    emailUser: "wolfstech25@gmail.com", 
-    emailPassword: "gsjsprtdyhrhlasa",
-    url: "http://localhost:5000", 
-    // url: "https://api.shopzone.com.au/",
-  
-    pool: {
-      max: 5,
-      min: 0,
-      idle: 10000,
-      acquire: 30000,
-    },
-  };
-  
+  HOST: "localhost",
+  PORT: "5000",
+  USER: "root",
+  PASSWORD: "",
+  DB: "wiser_api",
+  dialect: "mysql",
+  JWT_SECRET: "mysecretkey",
+  sessionSecret: "hfhahhafajuamfaafamdfarnfnayrefabyfamfhuaeahfa",
+  emailUser: "wolfstech25@gmail.com",
+  emailPassword: "gsjsprtdyhrhlasa",
+  url: "http://localhost:5000",
+
+  pool: {
+    max: 5,
+    min: 0,
+    idle: 10000,
+    acquire: 30000,
+  },
+};
