@@ -142,6 +142,7 @@ const createData = async (req, res) => {
     res.status(200).json({
       status: "success",
       message:"User created successfully",
+      token
     });
   } catch (err) {
     res.status(500).json({
@@ -318,7 +319,7 @@ const getAllData = async (req, res) => {
 
 const getDataById = async (req, res) => {
   try {
-    let id = req.params.id;
+    let id = req.user.id;
 
     let data = await User.findOne({
       where: { id: id },
@@ -435,7 +436,7 @@ const loginData = async (req, res) => {
 
 const updateData = async (req, res) => {
   try {
-    let id = req.params.id;
+    let id = req.user.id;
     const idData = await User.findOne({
       where: { id: id },
     });
@@ -530,7 +531,8 @@ const updateData = async (req, res) => {
 
 const deleteData = async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = req.user.id;
+
       const deletionDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
       const [affectedRows] = await User.update(
         { 
