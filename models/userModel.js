@@ -128,6 +128,26 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.BOOLEAN,
             defaultValue: false,
         },
+        failedLoginAttempts: {
+            type: DataTypes.INTEGER,
+            defaultValue: 0
+          },
+          isBlocked: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+          },
+          blockUntil: {
+            type: DataTypes.DATE,
+            allowNull: true
+          },
+          isMarkedForDeletion: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+          },
+          deletionDate: {
+            type: DataTypes.DATE,
+            allowNull: true
+          }
     }, {
         underscored: false,
         timestamps: true, 

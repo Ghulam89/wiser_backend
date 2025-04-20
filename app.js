@@ -18,6 +18,8 @@ app.use(cookieParser());
 
 // Routes
 const userRouter = require("./routes/userRoutes.js");
+const { user } = require("./models/index.js");
+const { Op } = require("sequelize");
 app.use("/user", userRouter);
 
 // Root route
@@ -27,6 +29,22 @@ app.get("/", (req, res) => {
     message: "API is working"
   });
 });
+
+async function deleteScheduledAccounts() {
+  try {
+    const result = await user.destroy({
+      where: {
+        isMarkedForDeletion: true,
+        deletionDate: { [Op.lt]: new Date() }
+      }
+    });
+    console.log(`[${new Date().toISOString()}] Deleted ${result} accounts scheduled for deletion`);
+  } catch (err) {
+    console.error('Automatic deletion error:', err);
+  }
+} 
+
+deleteScheduledAccounts();
 
 // 404 handler (should be last)
 app.use("*", (req, res) => {
