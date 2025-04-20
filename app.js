@@ -3,6 +3,7 @@ const app = express();
 const port = 5000;
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const cron = require('node-cron');
 require('dotenv').config();
 const bodyParser = require("body-parser");
 // const db = require("./db/db");
@@ -30,7 +31,7 @@ app.get("/", (req, res) => {
   });
 });
 
-async function deleteScheduledAccounts() {
+cron.schedule('0 0 * * *', async () => {
   try {
     const result = await user.destroy({
       where: {
@@ -38,13 +39,11 @@ async function deleteScheduledAccounts() {
         deletionDate: { [Op.lt]: new Date() }
       }
     });
-    console.log(`[${new Date().toISOString()}] Deleted ${result} accounts scheduled for deletion`);
+    console.log(`Deleted ${result} accounts scheduled for deletion`);
   } catch (err) {
     console.error('Automatic deletion error:', err);
   }
-} 
-
-deleteScheduledAccounts();
+});
 
 // 404 handler (should be last)
 app.use("*", (req, res) => {
