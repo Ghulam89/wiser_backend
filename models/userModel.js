@@ -8,6 +8,18 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.STRING,
             allowNull: true,
         },
+        profile:{
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+           poaDate:{
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+           poaTime:{
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
         password:{
             type: DataTypes.STRING,
             allowNull: true,
@@ -147,7 +159,16 @@ module.exports=(sequelize,DataTypes)=>{
           deletionDate: {
             type: DataTypes.DATE,
             allowNull: true
-          }
+          },
+           lastLogin: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+           status: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            defaultValue:'active'
+        }
     }, {
         underscored: false,
         timestamps: true, 

@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 // create main model
-const User = db.user;
+const Admin = db.admin;
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
   port: process.env.EMAIL_PORT,
   secure: false,
   auth: {
-    user: process.env.EMAIL,
+    admin: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD,
   },
   tls: {
@@ -27,9 +27,8 @@ const generateOTP = () => {
 
 const createData = async (req, res) => {
   try {
-
     // const { captchaToken } = req.body;
-    
+
     // if (!captchaToken) {
     //   return res.status(400).json({
     //     status: "fail",
@@ -38,7 +37,7 @@ const createData = async (req, res) => {
     // }
     // const captchaSecret = process.env.RECAPTCHA_SECRET_KEY;
     // const captchaVerificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${captchaSecret}&response=${captchaToken}`;
-    
+
     // const captchaResponse = await axios.post(captchaVerificationUrl);
     // const captchaData = captchaResponse.data;
 
@@ -67,15 +66,18 @@ const createData = async (req, res) => {
       });
     }
 
-      const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+
     if (!passwordRegex.test(req.body.password)) {
       return res.status(400).json({
         status: "fail",
-        message: "Password must be at least 8 characters long and contain at least 1 letter, 1 number, and 1 special character",
+        message:
+          "Use 8 or more characters with a mix of letters, numbers & symbols.",
       });
     }
 
-    const email = await User.findOne({
+    const email = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
@@ -86,71 +88,21 @@ const createData = async (req, res) => {
       });
     }
 
-    if (req.body.phone) {
-      const phone = await User.findOne({
-        where: { phone: req.body.phone },
-      });
-
-      if (phone) {
-        return res.status(400).json({
-          message: "Phone number already exists",
-          status: "fail",
-        });
-      }
-    }
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-    const otp = generateOTP();
 
-    let data = await User.create({
+    let data = await Admin.create({
       ...req.body,
       password: hashedPassword,
       email: lowerCaseEmail,
-      otp: otp,
-      otpExpires: new Date(Date.now() + 10 * 60 * 1000),
     });
 
     const token = jwt.sign({ id: data?.id }, JWT_SECRET, { expiresIn: "48h" });
 
-    const emailTemplateWithOTP = `
-           
-            <div style="background-color:#F9B134;padding:30px;display:flex;justify-content:center;align-items:center;">
-                <div style="background-color:white;border-radius:10px;padding:30px;width:100%">
-                    <h3 style="text-align:center;">Wiser</h3>
-                    <div style="width: 100%;text-align:center">
-    <img src="https://cdn-icons-png.flaticon.com/512/10646/10646637.png" width="60px" height="60px" style="object-fit: contain;">
-</div>
-
-                    <h3 style="text-align:center;">Here is your One Time Password</h3>
-                    <p style="text-align:center;">to validate your email address</p>
-                    <div style="margin:30px 0px;">
-                        <h3 style="text-align:center;letter-spacing:18px;font-size:30px;">${otp}</h3>
-                    </div>
-                    <p style="line-height:1.6;margin-bottom:20px;text-align:center;">Thank you for your requesting.</p>
-                </div>
-            </div>
-        `;
-
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: data?.email,
-      subject: "Your Verification Code",
-      html: emailTemplateWithOTP,
-    };
-
-    // Send email with OTP
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-      } else {
-        console.log("Email sent:", info.response);
-      }
-    });
-
     res.status(200).json({
       status: "success",
-      message:"User created successfully",
-      token
+      message: "Admin created successfully",
+      token,
     });
   } catch (err) {
     res.status(500).json({
@@ -158,8 +110,6 @@ const createData = async (req, res) => {
     });
   }
 };
-
-
 
 const sendOTP = async (req, res) => {
   try {
@@ -174,24 +124,22 @@ const sendOTP = async (req, res) => {
 
     const lowerCaseEmail = email.toLowerCase();
 
-    const user = await User.findOne({
+    const admin = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         status: "fail",
-        message: "User not found",
+        message: "Admin not found",
       });
     }
 
-    
     const otp = generateOTP();
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
+    admin.otp = otp;
+    admin.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await Admin.save();
 
-    
     const emailTemplateWithOTP = `
       <div style="background-color:#F9B134;padding:30px;display:flex;justify-content:center;align-items:center;">
         <div style="background-color:white;border-radius:10px;padding:30px;width:100%">
@@ -209,10 +157,9 @@ const sendOTP = async (req, res) => {
       </div>
     `;
 
-    
     const mailOptions = {
       from: process.env.EMAIL,
-      to: user.email,
+      to: admin.email,
       subject: "Your Verification Code",
       html: emailTemplateWithOTP,
     };
@@ -225,13 +172,12 @@ const sendOTP = async (req, res) => {
           message: "Failed to send OTP email",
         });
       }
-      
+
       res.status(200).json({
         status: "success",
         message: "OTP sent successfully",
       });
     });
-
   } catch (err) {
     console.error("Error in sendOTP:", err);
     res.status(500).json({
@@ -255,26 +201,26 @@ const verifyOTP = async (req, res) => {
     }
 
     const lowerCaseEmail = email.toLowerCase();
-    const user = await User.findOne({
+    const admin = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
-    if (!user) {
-      console.log("User not found for email:", lowerCaseEmail);
+    if (!admin) {
+      console.log("Admin not found for email:", lowerCaseEmail);
       return res.status(404).json({
         status: "fail",
-        message: "User not found",
+        message: "Admin not found",
       });
     }
 
-    console.log("User found:", {
-      storedOTP: user.otp,
+    console.log("Admin found:", {
+      storedOTP: admin.otp,
       inputOTP: otp,
-      otpExpires: user.otpExpires,
+      otpExpires: admin.otpExpires,
       currentTime: new Date(),
     });
 
-    if (user.otp !== otp) {
+    if (admin.otp !== otp) {
       console.log("OTP mismatch");
       return res.status(400).json({
         status: "fail",
@@ -282,7 +228,7 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    if (user.otpExpires < new Date()) {
+    if (admin.otpExpires < new Date()) {
       console.log("OTP expired");
       return res.status(400).json({
         status: "fail",
@@ -290,12 +236,12 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    user.isVerified = true;
-    user.otp = null;
-    user.otpExpires = null;
-    await user.save();
+    admin.isVerified = true;
+    admin.otp = null;
+    admin.otpExpires = null;
+    await admin.save();
 
-    console.log("OTP verified successfully for user:", user.id);
+    console.log("OTP verified successfully for admin:", admin.id);
     res.status(200).json({
       status: "success",
       message: "OTP verified successfully",
@@ -320,21 +266,21 @@ const resendOTP = async (req, res) => {
     }
 
     const lowerCaseEmail = email.toLowerCase();
-    const user = await User.findOne({
+    const admin = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         status: "fail",
-        message: "User not found",
+        message: "Admin not found",
       });
     }
 
     const otp = generateOTP();
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
+    admin.otp = otp;
+    admin.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await admin.save();
 
     const emailTemplateWithOTP = `
             <div>
@@ -346,7 +292,7 @@ const resendOTP = async (req, res) => {
 
     const mailOptions = {
       from: "gm6681328@gmail.com",
-      to: user.email,
+      to: admin.email,
       subject: "Your New Verification Code",
       html: emailTemplateWithOTP,
     };
@@ -377,7 +323,7 @@ const getAllData = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
 
-    const data = await User.findAll({
+    const data = await Admin.findAll({
       where: {
         [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
       },
@@ -385,7 +331,7 @@ const getAllData = async (req, res) => {
       offset: (page - 1) * limit,
     });
 
-    const count = await User.count({
+    const count = await Admin.count({
       where: {
         [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
       },
@@ -410,9 +356,9 @@ const getAllData = async (req, res) => {
 
 const getDataById = async (req, res) => {
   try {
-    let id = req.user.id;
+    let id = req.admin.id;
 
-    let data = await User.findOne({
+    let data = await Admin.findOne({
       where: { id: id },
     });
     res.status(200).json({
@@ -437,95 +383,52 @@ const loginData = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const lowerCaseEmail = email.toLowerCase();
+    const admin = await Admin.findOne({ where: { email: lowerCaseEmail } });
 
-    if (!user) {
+    if (!admin) {
       return res.status(401).json({
         status: "fail",
-        message: "User not found",
+        message: "Admin not found",
       });
     }
 
-    if (user.isMarkedForDeletion) {
-      const daysLeft = Math.ceil(
-        (new Date(user.deletionDate) - new Date()) / (1000 * 60 * 60 * 24)
-      );
-      return res.status(403).json({
-        status: "fail",
-        message: `Account scheduled for deletion in ${daysLeft} days. Contact support to recover.`,
-      });
-    }
-
-    if (user.isBlocked && user.blockUntil > new Date()) {
-      return res.status(403).json({
-        status: "fail",
-        message: `Account blocked. Try again after 30 minutes`,
-      });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
 
     if (!isPasswordValid) {
-      const updatedFailedAttempts = user.failedLoginAttempts + 1;
-      let updateData = { failedLoginAttempts: updatedFailedAttempts };
-
-      if (updatedFailedAttempts >= 5) {
-        updateData = {
-          ...updateData,
-          isBlocked: true,
-          blockUntil: new Date(Date.now() + 30 * 60 * 1000),
-        };
-      }
-
-      await User.update(updateData, { where: { id: user.id } });
-
-      if (updatedFailedAttempts >= 5) {
-        return res.status(403).json({
-          status: "fail",
-          message: "Account blocked for 30 minutes due to failed attempts",
-        });
-      }
-
       return res.status(401).json({
         status: "fail",
-        message: `Wrong password. ${
-          5 - updatedFailedAttempts
-        } attempts left`,
+        message: "Invalid email or password",
       });
     }
 
-    if (user.failedLoginAttempts > 0 || user.isBlocked) {
-      await User.update(
-        {
-          failedLoginAttempts: 0,
-          isBlocked: false,
-          blockUntil: null,
-          lastLogin: new Date(),
-         
-        },
-        { where: { id: user.id } }
-      );
-    }
+    // Update last login
+    await Admin.update({ lastLogin: new Date() }, { where: { id: admin.id } });
 
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: admin.id }, JWT_SECRET, {
       expiresIn: "48h",
     });
 
     return res.status(200).json({
       status: "success",
       message: "Login successful",
-      data: user,
+      data: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        lastLogin: new Date(), // return current login time
+      },
       token,
     });
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("Admin login error:", err);
     return res.status(500).json({
       status: "error",
       message: "Internal server error",
     });
   }
 };
-
 
 const resetPassword = async (req, res) => {
   try {
@@ -540,35 +443,37 @@ const resetPassword = async (req, res) => {
 
     const lowerCaseEmail = email.toLowerCase();
 
-    const user = await User.findOne({
+    const admin = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
-    if (!user) {
+    if (!admin) {
       return res.status(404).json({
         status: "fail",
-        message: "User not found",
+        message: "Admin not found",
       });
     }
 
-    if (user.otp !== otp || user.otpExpires < new Date()) {
+    if (admin.otp !== otp || admin.otpExpires < new Date()) {
       return res.status(400).json({
         status: "fail",
         message: "Invalid or expired OTP",
       });
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         status: "fail",
-        message: "Password must be at least 8 characters long and contain at least 1 letter, 1 number, and 1 special character",
+        message:
+          "Password must be at least 8 characters long and contain at least 1 letter, 1 number, and 1 special character",
       });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await user.update({
+    await admin.update({
       password: hashedPassword,
       otp: null,
       otpExpires: null,
@@ -578,7 +483,6 @@ const resetPassword = async (req, res) => {
       status: "success",
       message: "Password reset successfully",
     });
-
   } catch (err) {
     console.error("Error in resetPassword:", err);
     res.status(500).json({
@@ -591,13 +495,13 @@ const resetPassword = async (req, res) => {
 
 const updateData = async (req, res) => {
   try {
-    let id = req.user.id;
-    const idData = await User.findOne({
+    let id = req.admin.id;
+    const idData = await Admin.findOne({
       where: { id: id },
     });
     if (!idData) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Admin not found",
         status: "fail",
       });
     }
@@ -606,7 +510,7 @@ const updateData = async (req, res) => {
     if (req.body.email) {
       lowerCaseEmail = req.body.email.toLowerCase();
 
-      const email = await User.findOne({
+      const email = await Admin.findOne({
         where: { email: lowerCaseEmail },
         attributes: ["id"],
       });
@@ -619,56 +523,13 @@ const updateData = async (req, res) => {
       }
     }
 
-    if (req.body.userName) {
-      const userName = await User.findOne({
-        where: { userName: req.body.userName },
-        attributes: ["id"],
-      });
-
-      if (userName && userName.id !== id) {
-        return res.status(400).json({
-          message: "Username already exists",
-          status: "fail",
-        });
-      }
-    }
-
-    if (req.body.phone) {
-      const phone = await User.findOne({
-        where: { phone: req.body.phone },
-        attributes: ["id"],
-      });
-
-      if (phone && phone.id !== id) {
-        return res.status(400).json({
-          message: "Phone already exists",
-          status: "fail",
-        });
-      }
-    }
-
     const updateFields = {
       ...req.body,
       email: lowerCaseEmail ? lowerCaseEmail : idData.email,
       password: req.body.password ? req.body.password : idData.password,
     };
 
-    if (req.files) {
-      if (req.files.CPRFrontSide) {
-        updateFields.CPRFrontSide = `images/${req.files.CPRFrontSide[0].filename}`;
-      }
-      if (req.files.CPRBackSide) {
-        updateFields.CPRBackSide = `images/${req.files.CPRBackSide[0].filename}`;
-      }
-      if (req.files.CPRReader) {
-        updateFields.CPRReader = `images/${req.files.CPRReader[0].filename}`;
-      }
-      if (req.files.passport) {
-        updateFields.passport = `images/${req.files.passport[0].filename}`;
-      }
-    }
-
-    const data = await User.update(updateFields, {
+    const data = await Admin.update(updateFields, {
       where: { id: id },
     });
 
@@ -683,39 +544,31 @@ const updateData = async (req, res) => {
   }
 };
 
-
 const deleteData = async (req, res) => {
-    try {
-      const id = req.user.id;
+  try {
+    const id = req.admin.id;
 
-      const deletionDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
-      const [affectedRows] = await User.update(
-        { 
-          isMarkedForDeletion: true,
-          deletionDate: deletionDate
-        },
-        { where: { id } }
-      );
-  
-      if (affectedRows === 0) {
-        return res.status(404).json({
-          status: "fail",
-          message: "User not found",
-        });
-      }
-  
-      return res.status(200).json({
-        status: "success",
-        message: `Account will be deleted on ${deletionDate.toDateString()}`,
-      });
-    } catch (err) {
-      console.error("Delete error:", err);
-      return res.status(500).json({
-        status: "error",
-        message: "Internal server error",
+    const deleted = await Admin.destroy({ where: { id } });
+
+    if (deleted === 0) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Admin not found",
       });
     }
-  };
+
+    return res.status(200).json({
+      status: "success",
+      message: "Admin deleted successfully",
+    });
+  } catch (err) {
+    console.error("Delete error:", err);
+    return res.status(500).json({
+      status: "error",
+      message: "Internal server error",
+    });
+  }
+};
 
 module.exports = {
   createData,
@@ -727,5 +580,5 @@ module.exports = {
   loginData,
   resendOTP,
   resetPassword,
-  sendOTP
+  sendOTP,
 };

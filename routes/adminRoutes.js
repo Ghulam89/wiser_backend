@@ -1,4 +1,4 @@
-const { getAllData, createData, getDataById, updateData, deleteData, loginData, verifyOTP, resendOTP, sendOTP, resetPassword } = require('../controller/userController')
+const { getAllData, loginData, createData, verifyOTP, resendOTP, sendOTP, resetPassword, getDataById, updateData, deleteData } = require('../controller/adminController')
 const authenticate = require('../middlewares/auth')
 const { uploadUserImages } = require('../upload/UploadFile')
 

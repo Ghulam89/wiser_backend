@@ -8,6 +8,10 @@ require('dotenv').config();
 const bodyParser = require("body-parser");
 // const db = require("./db/db");
 
+const puppeteer = require('puppeteer');
+const path = require('path');
+const fs = require('fs');
+
 app.use(express.static("public"));
 app.use('/images', express.static('images'));
 // app.use(express.static(path.join(__dirname, 'public')));
@@ -19,9 +23,38 @@ app.use(cookieParser());
 
 // Routes
 const userRouter = require("./routes/userRoutes.js");
-const { user } = require("./models/index.js");
+const adminRouter = require("./routes/adminRoutes.js");
+const roleRouter = require("./routes/roleRoutes.js");
+const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
+
+app.get('/screenshot', async (req, res) => {
+  const { url } = req.query;
+  const outputFile = path.join(__dirname, 'screenshot.png');
+
+  if (!url || !url.startsWith('http')) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+
+  try {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    await page.screenshot({ path: outputFile, fullPage: true });
+
+    await browser.close();
+
+    res.sendFile(outputFile);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to take screenshot' });
+  }
+});
+
 app.use("/user", userRouter);
+app.use("/admin", adminRouter);
+app.use("/role", roleRouter);
 
 // Root route
 app.get("/", (req, res) => {
@@ -45,13 +78,15 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
-// 404 handler (should be last)
 app.use("*", (req, res) => {
   res.status(404).json({
     status: "fail",
     message: "Route not found"
   });
 });
+
+
+
 
 // Start server
 app.listen(port, () => {
