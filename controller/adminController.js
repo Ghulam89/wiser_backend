@@ -48,65 +48,63 @@ const createData = async (req, res) => {
     //   });
     // }
 
-    const lowerCaseEmail = req.body.email?.toLowerCase();
+ const { name, email, password, roleId } = req.body;
 
-    console.log(req.body.email);
-
-    if (!req.body.email) {
+    if (!name || !email || !password || !roleId) {
       return res.status(400).json({
         status: "fail",
-        message: "Email is required",
+        message: "Name, email, password, and role are required",
       });
     }
 
-    if (!req.body.password) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Password is required",
-      });
-    }
+    const lowerCaseEmail = email.toLowerCase();
 
-    const passwordRegex =
-      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
-
-    if (!passwordRegex.test(req.body.password)) {
-      return res.status(400).json({
-        status: "fail",
-        message:
-          "Use 8 or more characters with a mix of letters, numbers & symbols.",
-      });
-    }
-
-    const email = await Admin.findOne({
+    // Check if email already exists
+    const existingAdmin = await Admin.findOne({
       where: { email: lowerCaseEmail },
     });
 
-    if (email) {
+    if (existingAdmin) {
       return res.status(400).json({
-        message: "Email already exists",
         status: "fail",
+        message: "Email already exists",
       });
     }
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+    // Check if role exists
+    const role = await db.role.findByPk(roleId);
+    if (!role) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid role ID",
+      });
+    }
 
-    let data = await Admin.create({
-      ...req.body,
-      password: hashedPassword,
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create admin
+    const admin = await Admin.create({
+      name,
       email: lowerCaseEmail,
+      password: hashedPassword,
+      roleId,
     });
 
-    const token = jwt.sign({ id: data?.id }, JWT_SECRET, { expiresIn: "48h" });
+    // Generate JWT token
+    const token = jwt.sign({ id: admin.id }, JWT_SECRET, { expiresIn: "48h" });
 
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       message: "Admin created successfully",
       token,
+      data: admin,
     });
   } catch (err) {
     res.status(500).json({
-      error: err.message,
+      status: "error",
+      message: err.message,
     });
   }
 };
@@ -327,6 +325,12 @@ const getAllData = async (req, res) => {
       where: {
         [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
       },
+       include: {
+        model: db.role,
+        as: 'role',
+        attributes: ['id', 'name', 'description']
+      },
+      
       limit: limit,
       offset: (page - 1) * limit,
     });

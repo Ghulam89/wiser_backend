@@ -5,69 +5,71 @@ const Role = db.role;
 
 const createData = async (req, res) => {
   try {
-   
+    const { name, description, permissions } = req.body;
 
-   
-    if (!req.body.name) {
+    if (!name) {
       return res.status(400).json({
         status: "fail",
-        message: "Name is required",
+        message: "Role name is required",
       });
     }
 
- 
-    let data = await Role.create({
-      ...req.body,
-     
+    // Create the role
+    const role = await Role.create({
+      name,
+      description,
     });
 
-    res.status(200).json({
+    // Create permissions for the role
+    if (permissions && permissions.length) {
+      const rolePermissions = permissions.map(perm => ({
+        ...perm,
+        roleId: role.id
+      }));
+      await db.permission.bulkCreate(rolePermissions);
+    }
+
+    // Fetch the role with permissions to return
+    const roleWithPermissions = await Role.findByPk(role.id, {
+      include: {
+        model: db.permission,
+        as: 'permissions'
+      }
+    });
+
+    res.status(201).json({
       status: "success",
       message: "Role created successfully",
-      data:data,
+      data: roleWithPermissions,
     });
   } catch (err) {
     res.status(500).json({
-      error: err.message,
+      status: "error",
+      message: err.message,
     });
   }
 };
 
 
 
+// Get all roles with permissions
 const getAllData = async (req, res) => {
   try {
-    const search = req.query.search || "";
-    const page = parseInt(req.query.page) || 1;
-    const limit = 20;
-
-    const data = await Role.findAll({
-      where: {
-        [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
-      },
-      limit: limit,
-      offset: (page - 1) * limit,
-    });
-
-    const count = await Role.count({
-      where: {
-        [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
-      },
+    const roles = await Role.findAll({
+      include: {
+        model: db.permission,
+        as: 'permissions'
+      }
     });
 
     res.status(200).json({
-      status: "ok",
-      data: data,
-      search,
-      page,
-      count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
-      limit,
+      status: "success",
+      data: roles,
     });
   } catch (err) {
     res.status(500).json({
-      error: err.message,
+      status: "error",
+      message: err.message,
     });
   }
 };
@@ -91,36 +93,57 @@ const getDataById = async (req, res) => {
 };
 
 
+// Update a role and its permissions
 const updateData = async (req, res) => {
   try {
-    let id = req.role.id;
-    const idData = await Role.findOne({
-      where: { id: id },
-    });
-    if (!idData) {
+    const { name, description, permissions } = req.body;
+
+    const role = await Role.findByPk(req.params.id);
+    if (!role) {
       return res.status(404).json({
-        message: "Role not found",
         status: "fail",
+        message: "Role not found",
       });
     }
 
-   
-    const updateFields = {
-      ...req.body,
-     
-    };
+    // Update role details
+    await role.update({
+      name: name || role.name,
+      description: description || role.description,
+    });
 
-    const data = await Role.update(updateFields, {
-      where: { id: id },
+    // Update permissions
+    if (permissions && permissions.length) {
+      // First delete existing permissions
+      await db.permission.destroy({
+        where: { roleId: role.id }
+      });
+
+      // Then create new ones
+      const rolePermissions = permissions.map(perm => ({
+        ...perm,
+        roleId: role.id
+      }));
+      await db.permission.bulkCreate(rolePermissions);
+    }
+
+    // Fetch the updated role with permissions
+    const updatedRole = await Role.findByPk(role.id, {
+      include: {
+        model: db.permission,
+        as: 'permissions'
+      }
     });
 
     res.status(200).json({
-      status: "ok",
-      data: data,
+      status: "success",
+      message: "Role updated successfully",
+      data: updatedRole,
     });
   } catch (err) {
     res.status(500).json({
-      error: err.message,
+      status: "error",
+      message: err.message,
     });
   }
 };

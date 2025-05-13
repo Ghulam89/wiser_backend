@@ -5,7 +5,13 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
     module: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM(
+        'user_management',
+        'services_packages',
+        'roles_permissions',
+        'documents',
+        'tickets'
+      ),
       allowNull: false,
     },
     canView: {

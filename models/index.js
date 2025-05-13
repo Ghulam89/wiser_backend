@@ -14,6 +14,9 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   },
 });
 
+
+
+
 sequelize
   .authenticate()
   .then(() => {
@@ -31,16 +34,45 @@ db.admin = require("./adminModel.js")(sequelize, DataTypes);
 db.role = require("./roleModel.js")(sequelize, DataTypes);
 db.permission = require("./permissionMode.js")(sequelize, DataTypes);
 
-db.role.hasMany(db.admin, { foreignKey: "roleId", as: "admins" });
-db.admin.belongsTo(db.role, { foreignKey: "roleId", as: "adminRole" });
+// Define associations
+function setupAssociations() {
+ 
+  db.role.hasMany(db.admin, { 
+    foreignKey: "roleId", 
+    as: "admins",
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  });
+  
+  db.admin.belongsTo(db.role, { 
+    foreignKey: "roleId", 
+    as: "role", 
+    constraints: true 
+  });
 
-// Role ↔ Permission
-db.role.hasMany(db.permission, { foreignKey: "roleId", as: "permissions" });
-db.permission.belongsTo(db.role, { foreignKey: "roleId", as: "role" });
+  db.role.hasMany(db.permission, { 
+    foreignKey: "roleId", 
+    as: "permissions",
+    onDelete: 'CASCADE', 
+    onUpdate: 'CASCADE'
+  });
+  
+  db.permission.belongsTo(db.role, { 
+    foreignKey: "roleId", 
+    as: "role",
+    constraints: true
+  });
+}
+
+setupAssociations();
+
 
 
 db.sequelize.sync({ force: false }).then(() => {
   console.log("Yes Re-Sync Complete");
+
+
+  
 });
 
 
