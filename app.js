@@ -25,6 +25,9 @@ app.use(cookieParser());
 const userRouter = require("./routes/userRoutes.js");
 const adminRouter = require("./routes/adminRoutes.js");
 const roleRouter = require("./routes/roleRoutes.js");
+const categoryRouter = require("./routes/categoryRoutes.js");
+const subCategoryRouter = require("./routes/subCategoryRoutes.js");
+const servieRouter = require("./routes/serviceRoutes.js");
 const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
 
@@ -53,6 +56,9 @@ app.get('/screenshot', async (req, res) => {
 });
 
 app.use("/user", userRouter);
+app.use("/service", servieRouter);
+app.use("/category", categoryRouter);
+app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
 app.use("/role", roleRouter);
 

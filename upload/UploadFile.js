@@ -34,5 +34,8 @@ module.exports = {
         { name: 'CPRBackSide', maxCount: 1 },
         { name: 'CPRReader', maxCount: 1 },
         { name: 'passport', maxCount: 1 }
+    ]),
+    uploadCategoryImages: upload.fields([
+        { name: 'image', maxCount: 1 },
     ])
 };
