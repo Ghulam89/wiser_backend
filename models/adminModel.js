@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
           typeof value === 'string' ? value : JSON.stringify(value || {}));
       }
     },
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: true,

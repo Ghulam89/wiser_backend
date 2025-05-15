@@ -27,6 +27,7 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 db.admin = require("./adminModel.js")(sequelize, DataTypes);
+db.user = require("./userModel.js")(sequelize, DataTypes);
 db.category = require("./categoryModel.js")(sequelize, DataTypes);
 db.subCategory = require("./subCategoryModel.js")(sequelize, DataTypes);
 db.service = require("./serviceModel.js")(sequelize, DataTypes);
