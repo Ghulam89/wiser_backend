@@ -5,10 +5,20 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'Super Admin'
     },
-    permissions: {
-      type: DataTypes.JSON,
-      allowNull: true,
-      defaultValue: {}
+     permissions: {
+      type: DataTypes.TEXT,
+      get() {
+        const rawValue = this.getDataValue('permissions');
+        try {
+          return rawValue ? JSON.parse(rawValue) : {};
+        } catch (e) {
+          return {};
+        }
+      },
+      set(value) {
+        this.setDataValue('permissions', 
+          typeof value === 'string' ? value : JSON.stringify(value || {}));
+      }
     },
     name: {
       type: DataTypes.STRING,

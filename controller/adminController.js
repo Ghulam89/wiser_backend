@@ -356,13 +356,13 @@ const getAllData = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
 
-    if (req.admin.role !== 'Super Admin' && 
-        (!req.admin.permissions || !req.admin.permissions.userManagement || !req.admin.permissions.userManagement.view)) {
-      return res.status(403).json({
-        status: "fail",
-        message: "You don't have permission to view admin data"
-      });
-    }
+    // if (req.admin.role !== 'Super Admin' && 
+    //     (!req.admin.permissions || !req.admin.permissions.userManagement || !req.admin.permissions.userManagement.view)) {
+    //   return res.status(403).json({
+    //     status: "fail",
+    //     message: "You don't have permission to view admin data"
+    //   });
+    // }
 
     const data = await Admin.findAll({
       where: {
@@ -404,16 +404,7 @@ const getAllData = async (req, res) => {
 
 const getDataById = async (req, res) => {
   try {
-    let id = req.params.id || req.admin.id;
-
-    // Check if user has permission to view admin data
-    if (req.admin.role !== 'Super Admin' && 
-        (!req.admin.permissions || !req.admin.permissions.userManagement || !req.admin.permissions.userManagement.view)) {
-      return res.status(403).json({
-        status: "fail",
-        message: "You don't have permission to view admin data"
-      });
-    }
+    let id = req.query.id;
 
     let data = await Admin.findOne({
       where: { id: id },
@@ -427,9 +418,10 @@ const getDataById = async (req, res) => {
       });
     }
 
+   
     res.status(200).json({
       status: "ok",
-      data: data,
+      data:data,
     });
   } catch (err) {
     res.status(500).json({
@@ -482,7 +474,7 @@ const loginData = async (req, res) => {
       name: admin.name,
       email: admin.email,
       role: admin.role,
-      permissions: JSON.parse(admin.permissions),
+      permissions: admin.permissions,
       lastLogin: new Date()
     };
 
@@ -566,12 +558,11 @@ const resetPassword = async (req, res) => {
 
 const updateData = async (req, res) => {
   try {
-    const id = req.params.id || req.admin.id;
-    const requestingAdmin = req.admin;
+    const id = req.query.id
+    const {permissions,role} = req.body;
 
-    // Check if the requesting admin has permission to update
-    if (requestingAdmin.role !== 'Super Admin' && 
-        (!requestingAdmin.permissions || !requestingAdmin.permissions.userManagement || !requestingAdmin.permissions.userManagement.edit)) {
+    if (role !== 'Super Admin' && 
+        (!permissions)) {
       return res.status(403).json({
         status: "fail",
         message: "You don't have permission to update admin data"
@@ -589,8 +580,7 @@ const updateData = async (req, res) => {
       });
     }
 
-    // Super Admin can't be modified by others
-    if (adminToUpdate.role === 'Super Admin' && requestingAdmin.id !== adminToUpdate.id) {
+    if (role === !'Super Admin') {
       return res.status(403).json({
         status: "fail",
         message: "Cannot modify Super Admin account"
@@ -614,29 +604,24 @@ const updateData = async (req, res) => {
       }
     }
 
-    // Prepare update fields
     const updateFields = {
       ...req.body,
       email: lowerCaseEmail ? lowerCaseEmail : adminToUpdate.email,
     };
 
-    // Only update password if provided
     if (req.body.password) {
       const saltRounds = 10;
       updateFields.password = await bcrypt.hash(req.body.password, saltRounds);
     }
 
-    // Only Super Admin can change roles and permissions
-    if (req.body.role && requestingAdmin.role !== 'Super Admin') {
+    if (role && role !== 'Super Admin') {
       return res.status(403).json({
         status: "fail",
         message: "Only Super Admin can change roles"
       });
     }
-
-    // If role is being changed, update permissions accordingly
-    if (req.body.role) {
-      updateFields.permissions = setDefaultPermissions(req.body.role);
+    if (role) {
+      permissions = setDefaultPermissions(role);
     }
 
     await Admin.update(updateFields, {
@@ -647,6 +632,8 @@ const updateData = async (req, res) => {
       where: { id: id },
       attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin']
     });
+
+    
 
     res.status(200).json({
       status: "ok",
@@ -664,8 +651,6 @@ const deleteData = async (req, res) => {
   try {
     const id = req.params.id;
     const requestingAdmin = req.admin;
-
-    // Check if the requesting admin has permission to delete
     if (requestingAdmin.role !== 'Super Admin' && 
         (!requestingAdmin.permissions || !requestingAdmin.permissions.userManagement || !requestingAdmin.permissions.userManagement.delete)) {
       return res.status(403).json({
@@ -726,12 +711,9 @@ const deleteData = async (req, res) => {
 // Add this new function to update permissions
 const updatePermissions = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { permissions } = req.body;
-    const requestingAdmin = req.admin;
-
-    // Only Super Admin can update permissions
-    if (requestingAdmin.role !== 'Super Admin') {
+    const { id, permissions,role } = req.body;
+   
+    if (role !== 'Super Admin') {
       return res.status(403).json({
         status: "fail",
         message: "Only Super Admin can update permissions"
@@ -739,7 +721,6 @@ const updatePermissions = async (req, res) => {
     }
 
     const adminToUpdate = await Admin.findOne({ where: { id } });
-
     if (!adminToUpdate) {
       return res.status(404).json({
         status: "fail",
@@ -747,8 +728,7 @@ const updatePermissions = async (req, res) => {
       });
     }
 
-    // Can't modify Super Admin permissions
-    if (adminToUpdate.role === 'Super Admin') {
+    if (role === !'Super Admin') {
       return res.status(403).json({
         status: "fail",
         message: "Cannot modify Super Admin permissions"
@@ -756,7 +736,6 @@ const updatePermissions = async (req, res) => {
     }
 
     await adminToUpdate.update({ permissions });
-
     const updatedAdmin = await Admin.findOne({
       where: { id },
       attributes: ['id', 'name', 'email', 'role', 'permissions']
@@ -765,7 +744,7 @@ const updatePermissions = async (req, res) => {
     res.status(200).json({
       status: "success",
       message: "Permissions updated successfully",
-      data: updatedAdmin
+      data:updatedAdmin
     });
   } catch (err) {
     res.status(500).json({
