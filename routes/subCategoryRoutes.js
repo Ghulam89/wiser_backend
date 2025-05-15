@@ -1,5 +1,5 @@
 const { getAllData, createData, getDataById, updateData, deleteData } = require('../controller/subCategoryController');
-const authenticate = require('../middlewares/auth')
+const {authenticate} = require('../middlewares/auth')
 const router = require('express').Router()
 router.get('/getAll', getAllData)
 router.post('/create',createData)

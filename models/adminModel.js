@@ -1,12 +1,14 @@
 module.exports = (sequelize, DataTypes) => {
   const Admin = sequelize.define('admin', {
-    roleId: {
-      type: DataTypes.INTEGER,
+    role: {
+      type: DataTypes.ENUM('Super Admin', 'Operations Admin', 'Admin Staff', 'Tech Admin'),
+      allowNull: false,
+      defaultValue: 'Super Admin'
+    },
+    permissions: {
+      type: DataTypes.JSON,
       allowNull: true,
-      references: {
-        model: 'roles',
-        key: 'id',
-      },
+      defaultValue: {}
     },
     name: {
       type: DataTypes.STRING,
@@ -16,7 +18,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
-
     password: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -36,8 +37,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     underscored: false,
     timestamps: true,
-  })
+  });
 
-  return Admin
-
+  return Admin;
 }

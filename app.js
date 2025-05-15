@@ -24,7 +24,6 @@ app.use(cookieParser());
 // Routes
 const userRouter = require("./routes/userRoutes.js");
 const adminRouter = require("./routes/adminRoutes.js");
-const roleRouter = require("./routes/roleRoutes.js");
 const categoryRouter = require("./routes/categoryRoutes.js");
 const subCategoryRouter = require("./routes/subCategoryRoutes.js");
 const servieRouter = require("./routes/serviceRoutes.js");
@@ -60,7 +59,6 @@ app.use("/service", servieRouter);
 app.use("/category", categoryRouter);
 app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
-app.use("/role", roleRouter);
 
 // Root route
 app.get("/", (req, res) => {

@@ -61,6 +61,7 @@ const getAllData = async (req, res) => {
 
 const createData = async (req, res) => {
     try {
+        
         const { serviceName, categoryId, subCategoryId, servicePoints, price } = req.body;
 
         if (!serviceName || !categoryId || !subCategoryId) {

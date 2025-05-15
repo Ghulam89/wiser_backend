@@ -37,5 +37,8 @@ module.exports = {
     ]),
     uploadCategoryImages: upload.fields([
         { name: 'image', maxCount: 1 },
+    ]),
+     uploadServiceImages: upload.fields([
+        { name: 'logo', maxCount: 1 },
     ])
 };

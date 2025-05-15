@@ -24,4 +24,39 @@ const authenticate = (req, res, next) => {
   }
 };
 
-module.exports = authenticate;
+
+const auditAction = async (action, resource, details, adminId) => {
+  try {
+    await db.auditLog.create({
+      action,
+      resource,
+      details,
+      adminId
+    });
+  } catch (error) {
+    console.error("Failed to create audit log:", error);
+  }
+};
+
+const auditMiddleware = (action, resource) => {
+  return async (req, res, next) => {
+    
+    await next();
+    
+    if (res.statusCode < 400) {
+      let details = '';
+      
+      if (action === 'create') {
+        details = `Created ${resource}: ${JSON.stringify(req.body)}`;
+      } else if (action === 'update') {
+        details = `Updated ${resource} ID ${req.params.id}: ${JSON.stringify(req.body)}`;
+      } else if (action === 'delete') {
+        details = `Deleted ${resource} ID ${req.params.id}`;
+      }
+
+      await auditAction(action, resource, details, req.admin?.id);
+    }
+  };
+};
+
+module.exports = {authenticate, auditAction, auditMiddleware};

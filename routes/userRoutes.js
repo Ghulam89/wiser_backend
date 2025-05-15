@@ -1,5 +1,5 @@
 const { getAllData, createData, getDataById, updateData, deleteData, loginData, verifyOTP, resendOTP, sendOTP, resetPassword } = require('../controller/userController')
-const authenticate = require('../middlewares/auth')
+const {authenticate} = require('../middlewares/auth')
 const { uploadUserImages } = require('../upload/UploadFile')
 
 const router = require('express').Router()

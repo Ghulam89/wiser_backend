@@ -25,6 +25,46 @@ const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
+const setDefaultPermissions = (role) => {
+  const permissions = {
+    'Super Admin': {
+      selectAll: true,
+      userManagement: { view: true, edit: true, delete: true },
+      servicesPackages: { view: true, edit: true, delete: true },
+      rolesPermissions: { view: true, edit: true, delete: true },
+      documents: { view: true, edit: true, delete: true },
+      tickets: { view: true, edit: true, delete: true }
+    },
+    'Operations Admin': {
+      selectAll: false,
+      userManagement: { view: false, edit: false, delete: false },
+      servicesPackages: { view: false, edit: false, delete: false },
+      rolesPermissions: { view: true, edit: true, delete: true },
+      documents: { view: false, edit: false, delete: false },
+      tickets: { view: false, edit: false, delete: false }
+    },
+    'Admin Staff': {
+      selectAll: false,
+      userManagement: { view: false, edit: false, delete: false },
+      servicesPackages: { view: false, edit: false, delete: false },
+      rolesPermissions: { view: false, edit: false, delete: false },
+      documents: { view: false, edit: false, delete: false },
+      tickets: { view: false, edit: false, delete: false }
+    },
+    'Tech Admin': {
+      selectAll: false,
+      userManagement: { view: false, edit: false, delete: false },
+      servicesPackages: { view: false, edit: false, delete: false },
+      rolesPermissions: { view: false, edit: false, delete: false },
+      documents: { view: false, edit: false, delete: false },
+      tickets: { view: false, edit: false, delete: false }
+    }
+  };
+
+  return permissions[role] || permissions['Super Admin'];
+};
+
+
 const createData = async (req, res) => {
   try {
     // const { captchaToken } = req.body;
@@ -48,12 +88,12 @@ const createData = async (req, res) => {
     //   });
     // }
 
- const { name, email, password, roleId } = req.body;
+ const { name, email, password,role} = req.body;
 
-    if (!name || !email || !password || !roleId) {
+    if (!name || !email || !password) {
       return res.status(400).json({
         status: "fail",
-        message: "Name, email, password, and role are required",
+        message: "Name, email, password, and  are required",
       });
     }
 
@@ -71,25 +111,20 @@ const createData = async (req, res) => {
       });
     }
 
-    // Check if role exists
-    const role = await db.role.findByPk(roleId);
-    if (!role) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Invalid role ID",
-      });
-    }
-
     // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+        const adminRole = role || 'Super Admin';
+    const permissions = setDefaultPermissions(adminRole);
+
     // Create admin
     const admin = await Admin.create({
-      name,
+     name,
       email: lowerCaseEmail,
       password: hashedPassword,
-      roleId,
+      role: adminRole,
+      permissions
     });
 
     // Generate JWT token
@@ -99,7 +134,7 @@ const createData = async (req, res) => {
       status: "success",
       message: "Admin created successfully",
       token,
-      data: admin,
+      
     });
   } catch (err) {
     res.status(500).json({
@@ -321,23 +356,32 @@ const getAllData = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
 
+    if (req.admin.role !== 'Super Admin' && 
+        (!req.admin.permissions || !req.admin.permissions.userManagement || !req.admin.permissions.userManagement.view)) {
+      return res.status(403).json({
+        status: "fail",
+        message: "You don't have permission to view admin data"
+      });
+    }
+
     const data = await Admin.findAll({
       where: {
-        [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
+        [Op.or]: [
+          { email: { [Op.like]: `%${search}%` } },
+          { name: { [Op.like]: `%${search}%` } }
+        ],
       },
-       include: {
-        model: db.role,
-        as: 'role',
-        attributes: ['id', 'name', 'description']
-      },
-      
+      attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin'],
       limit: limit,
       offset: (page - 1) * limit,
     });
 
     const count = await Admin.count({
       where: {
-        [Op.or]: [{ email: { [Op.like]: `%${search}%` } }],
+        [Op.or]: [
+          { email: { [Op.like]: `%${search}%` } },
+          { name: { [Op.like]: `%${search}%` } }
+        ],
       },
     });
 
@@ -360,11 +404,29 @@ const getAllData = async (req, res) => {
 
 const getDataById = async (req, res) => {
   try {
-    let id = req.admin.id;
+    let id = req.params.id || req.admin.id;
+
+    // Check if user has permission to view admin data
+    if (req.admin.role !== 'Super Admin' && 
+        (!req.admin.permissions || !req.admin.permissions.userManagement || !req.admin.permissions.userManagement.view)) {
+      return res.status(403).json({
+        status: "fail",
+        message: "You don't have permission to view admin data"
+      });
+    }
 
     let data = await Admin.findOne({
       where: { id: id },
+      attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin']
     });
+
+    if (!data) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Admin not found"
+      });
+    }
+
     res.status(200).json({
       status: "ok",
       data: data,
@@ -388,7 +450,10 @@ const loginData = async (req, res) => {
     }
 
     const lowerCaseEmail = email.toLowerCase();
-    const admin = await Admin.findOne({ where: { email: lowerCaseEmail } });
+    const admin = await Admin.findOne({ 
+      where: { email: lowerCaseEmail },
+      attributes: { exclude: ['otp', 'otpExpires'] }
+    });
 
     if (!admin) {
       return res.status(401).json({
@@ -406,24 +471,26 @@ const loginData = async (req, res) => {
       });
     }
 
-    // Update last login
     await Admin.update({ lastLogin: new Date() }, { where: { id: admin.id } });
 
     const token = jwt.sign({ id: admin.id }, JWT_SECRET, {
       expiresIn: "48h",
     });
 
+    const adminData = {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      permissions: JSON.parse(admin.permissions),
+      lastLogin: new Date()
+    };
+
     return res.status(200).json({
       status: "success",
       message: "Login successful",
-      data: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-        lastLogin: new Date(), // return current login time
-      },
       token,
+      data: adminData
     });
   } catch (err) {
     console.error("Admin login error:", err);
@@ -499,27 +566,47 @@ const resetPassword = async (req, res) => {
 
 const updateData = async (req, res) => {
   try {
-    let id = req.admin.id;
-    const idData = await Admin.findOne({
+    const id = req.params.id || req.admin.id;
+    const requestingAdmin = req.admin;
+
+    // Check if the requesting admin has permission to update
+    if (requestingAdmin.role !== 'Super Admin' && 
+        (!requestingAdmin.permissions || !requestingAdmin.permissions.userManagement || !requestingAdmin.permissions.userManagement.edit)) {
+      return res.status(403).json({
+        status: "fail",
+        message: "You don't have permission to update admin data"
+      });
+    }
+
+    const adminToUpdate = await Admin.findOne({
       where: { id: id },
     });
-    if (!idData) {
+
+    if (!adminToUpdate) {
       return res.status(404).json({
         message: "Admin not found",
         status: "fail",
       });
     }
 
-    var lowerCaseEmail = null;
+    // Super Admin can't be modified by others
+    if (adminToUpdate.role === 'Super Admin' && requestingAdmin.id !== adminToUpdate.id) {
+      return res.status(403).json({
+        status: "fail",
+        message: "Cannot modify Super Admin account"
+      });
+    }
+
+    let lowerCaseEmail = null;
     if (req.body.email) {
       lowerCaseEmail = req.body.email.toLowerCase();
 
-      const email = await Admin.findOne({
+      const existingEmail = await Admin.findOne({
         where: { email: lowerCaseEmail },
         attributes: ["id"],
       });
 
-      if (email && email.id !== id) {
+      if (existingEmail && existingEmail.id !== id) {
         return res.status(400).json({
           message: "Email already exists",
           status: "fail",
@@ -527,19 +614,44 @@ const updateData = async (req, res) => {
       }
     }
 
+    // Prepare update fields
     const updateFields = {
       ...req.body,
-      email: lowerCaseEmail ? lowerCaseEmail : idData.email,
-      password: req.body.password ? req.body.password : idData.password,
+      email: lowerCaseEmail ? lowerCaseEmail : adminToUpdate.email,
     };
 
-    const data = await Admin.update(updateFields, {
+    // Only update password if provided
+    if (req.body.password) {
+      const saltRounds = 10;
+      updateFields.password = await bcrypt.hash(req.body.password, saltRounds);
+    }
+
+    // Only Super Admin can change roles and permissions
+    if (req.body.role && requestingAdmin.role !== 'Super Admin') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Only Super Admin can change roles"
+      });
+    }
+
+    // If role is being changed, update permissions accordingly
+    if (req.body.role) {
+      updateFields.permissions = setDefaultPermissions(req.body.role);
+    }
+
+    await Admin.update(updateFields, {
       where: { id: id },
+    });
+
+    const updatedAdmin = await Admin.findOne({
+      where: { id: id },
+      attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin']
     });
 
     res.status(200).json({
       status: "ok",
-      data: data,
+      message: "Admin updated successfully",
+      data: updatedAdmin,
     });
   } catch (err) {
     res.status(500).json({
@@ -550,7 +662,44 @@ const updateData = async (req, res) => {
 
 const deleteData = async (req, res) => {
   try {
-    const id = req.admin.id;
+    const id = req.params.id;
+    const requestingAdmin = req.admin;
+
+    // Check if the requesting admin has permission to delete
+    if (requestingAdmin.role !== 'Super Admin' && 
+        (!requestingAdmin.permissions || !requestingAdmin.permissions.userManagement || !requestingAdmin.permissions.userManagement.delete)) {
+      return res.status(403).json({
+        status: "fail",
+        message: "You don't have permission to delete admins"
+      });
+    }
+
+    const adminToDelete = await Admin.findOne({
+      where: { id: id },
+    });
+
+    if (!adminToDelete) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Admin not found",
+      });
+    }
+
+    // Prevent deletion of Super Admin
+    if (adminToDelete.role === 'Super Admin') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Cannot delete Super Admin account"
+      });
+    }
+
+    // Prevent self-deletion
+    if (requestingAdmin.id === adminToDelete.id) {
+      return res.status(403).json({
+        status: "fail",
+        message: "Cannot delete your own account"
+      });
+    }
 
     const deleted = await Admin.destroy({ where: { id } });
 
@@ -574,6 +723,101 @@ const deleteData = async (req, res) => {
   }
 };
 
+// Add this new function to update permissions
+const updatePermissions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body;
+    const requestingAdmin = req.admin;
+
+    // Only Super Admin can update permissions
+    if (requestingAdmin.role !== 'Super Admin') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Only Super Admin can update permissions"
+      });
+    }
+
+    const adminToUpdate = await Admin.findOne({ where: { id } });
+
+    if (!adminToUpdate) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Admin not found"
+      });
+    }
+
+    // Can't modify Super Admin permissions
+    if (adminToUpdate.role === 'Super Admin') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Cannot modify Super Admin permissions"
+      });
+    }
+
+    await adminToUpdate.update({ permissions });
+
+    const updatedAdmin = await Admin.findOne({
+      where: { id },
+      attributes: ['id', 'name', 'email', 'role', 'permissions']
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Permissions updated successfully",
+      data: updatedAdmin
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: err.message
+    });
+  }
+};
+
+const getAuditLogs = async (req, res) => {
+  try {
+    
+    if (req.role !== 'Super Admin') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Only Super Admin can view audit logs"
+      });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await db.auditLog.findAndCountAll({
+      include: [{
+        model: db.admin,
+        attributes: ['id', 'name', 'email', 'role']
+      }],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: rows,
+      pagination: {
+        total: count,
+        pages: Math.ceil(count / limit),
+        currentPage: page,
+        limit
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: err.message
+    });
+  }
+};
+
+
 module.exports = {
   createData,
   getAllData,
@@ -585,4 +829,6 @@ module.exports = {
   resendOTP,
   resetPassword,
   sendOTP,
+  updatePermissions,
+  getAuditLogs
 };

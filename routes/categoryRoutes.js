@@ -1,5 +1,5 @@
 const { getAllData, createData, getDataById, updateData, deleteData } = require('../controller/categoryController');
-const authenticate = require('../middlewares/auth')
+const {authenticate} = require('../middlewares/auth')
 const {uploadCategoryImages } = require('../upload/UploadFile')
 
 const router = require('express').Router()
