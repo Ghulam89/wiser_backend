@@ -1,13 +1,15 @@
 const express = require("express");
 const app = express();
 const port = 5000;
+const http = require('http');
+const socketIo = require('socket.io');
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const cron = require('node-cron');
 require('dotenv').config();
 const bodyParser = require("body-parser");
 // const db = require("./db/db");
-
+const { initializeSocket } = require('./sockets/chat');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -27,8 +29,18 @@ const adminRouter = require("./routes/adminRoutes.js");
 const categoryRouter = require("./routes/categoryRoutes.js");
 const subCategoryRouter = require("./routes/subCategoryRoutes.js");
 const servieRouter = require("./routes/serviceRoutes.js");
+const chatRouter = require("./routes/chatRoutes.js");
 const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
+
+
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
 
 app.get('/screenshot', async (req, res) => {
   const { url } = req.query;
@@ -59,7 +71,7 @@ app.use("/service", servieRouter);
 app.use("/category", categoryRouter);
 app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
-
+app.use("/chat", chatRouter);
 // Root route
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -91,8 +103,15 @@ app.use("*", (req, res) => {
 
 
 
-
-// Start server
+initializeSocket(io);
+  
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+});
+
+
+server.listen(4000, () => {
+    console.log(`Server is running on 4000`);
+
+    
 });

@@ -28,6 +28,8 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 db.admin = require("./adminModel.js")(sequelize, DataTypes);
 db.user = require("./userModel.js")(sequelize, DataTypes);
+db.chatRoom = require("./chatRoomModel.js")(sequelize, DataTypes);
+db.chatMessage = require("./chatMessageModel.js")(sequelize, DataTypes);
 db.category = require("./categoryModel.js")(sequelize, DataTypes);
 db.subCategory = require("./subCategoryModel.js")(sequelize, DataTypes);
 db.service = require("./serviceModel.js")(sequelize, DataTypes);
@@ -41,6 +43,10 @@ function setupAssociations() {
     onDelete: "CASCADE",
     onUpdate: "CASCADE",
   });
+
+  db.admin.hasMany(db.chatRoom, { foreignKey: 'adminId', as: 'chatRooms' });
+  db.user.hasMany(db.chatRoom, { foreignKey: 'userId', as: 'chatRooms' });
+  db.chatRoom.hasMany(db.chatMessage, { foreignKey: 'roomId', as: 'messages' });
 
   db.subCategory.belongsTo(db.category, {
     foreignKey: "categoryId",
