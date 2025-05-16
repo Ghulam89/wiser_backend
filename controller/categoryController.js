@@ -29,7 +29,7 @@ const getAllData = async (req, res) => {
     });
 
     res.status(200).json({
-      status: "ok",
+       status: "success",
       data: data,
       search,
       page,
@@ -113,7 +113,7 @@ const getDataById = async (req, res) => {
     }
 
     res.status(200).json({
-      status: "ok",
+       status: "success",
       data: data,
     });
   } catch (err) {
@@ -177,7 +177,7 @@ const updateData = async (req, res) => {
 
     const updatedCategory = await Category.findByPk(id);
     res.status(200).json({
-      status: "ok",
+       status: "success",
       data: updatedCategory,
     });
   } catch (err) {

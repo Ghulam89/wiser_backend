@@ -17,12 +17,12 @@ module.exports = (sequelize, DataTypes) => {
             },
         },
         serviceName: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT,
             allowNull: false,
             unique: true,
         },
         logo: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT,
             allowNull: true,
         },
         servicePoints: {
@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
         },
         price: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT,
             allowNull: true,
         },
     }, {

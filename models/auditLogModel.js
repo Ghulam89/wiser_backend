@@ -2,11 +2,11 @@
 module.exports = (sequelize, DataTypes) => {
   const AuditLog = sequelize.define('auditLog', {
     action: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false
     },
     resource: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false
     },
     details: {

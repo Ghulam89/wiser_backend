@@ -43,7 +43,7 @@ const getAllData = async (req, res) => {
         });
 
         res.status(200).json({
-            status: "ok",
+             status: "success",
             data: data,
             search,
             page,
@@ -172,7 +172,7 @@ const getDataById = async (req, res) => {
         }
 
         res.status(200).json({
-            status: "ok",
+             status: "success",
             data: data,
         });
     } catch (err) {
@@ -289,7 +289,7 @@ const updateData = async (req, res) => {
             ]
         });
         res.status(200).json({
-            status: "ok",
+             status: "success",
             data: updatedService,
         });
     } catch (err) {

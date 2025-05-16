@@ -1,12 +1,12 @@
 module.exports = (sequelize, DataTypes) => {
     const Category = sequelize.define("category", {
         name: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT,
             allowNull: false,
             unique: true,
         },
         image: {
-            type: DataTypes.STRING,
+            type: DataTypes.TEXT,
             allowNull: true,
         },
         description: {
