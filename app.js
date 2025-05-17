@@ -9,7 +9,6 @@ const cron = require('node-cron');
 require('dotenv').config();
 const bodyParser = require("body-parser");
 // const db = require("./db/db");
-const { initializeSocket } = require('./sockets/chat');
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -29,9 +28,10 @@ const adminRouter = require("./routes/adminRoutes.js");
 const categoryRouter = require("./routes/categoryRoutes.js");
 const subCategoryRouter = require("./routes/subCategoryRoutes.js");
 const servieRouter = require("./routes/serviceRoutes.js");
-const chatRouter = require("./routes/chatRoutes.js");
+// const chatRouter = require("./routes/chatRoutes.js");
 const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
+const { initializeSocket } = require("./controller/chatController.js");
 
 
 const server = http.createServer(app);
@@ -71,7 +71,7 @@ app.use("/service", servieRouter);
 app.use("/category", categoryRouter);
 app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
-app.use("/chat", chatRouter);
+// app.use("/chat", chatRouter);
 // Root route
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -79,6 +79,9 @@ app.get("/", (req, res) => {
     message: "API is working"
   });
 });
+
+
+
 
 cron.schedule('0 0 * * *', async () => {
   try {

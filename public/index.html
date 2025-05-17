@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Test UI</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .chat-box {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            flex: 1;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            text-align: right;
+        }
+        .admin-message {
+            background-color: #f5f5f5;
+            text-align: left;
+        }
+        input, button, select {
+            padding: 8px;
+            margin: 5px 0;
+        }
+        button {
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat Test UI</h1>
+    <div class="container">
+        <div class="chat-box">
+            <h2>User Chat</h2>
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="text" id="userId" placeholder="Enter user ID">
+                <button onclick="connectUser()">Connect as User</button>
+            </div>
+            <div id="userMessages" class="messages"></div>
+            <div class="form-group">
+                <input type="text" id="userMessage" placeholder="Type your message">
+                <input type="text" id="targetAdminId" placeholder="Admin ID">
+                <button onclick="sendUserMessage()">Send</button>
+            </div>
+            <div>
+                <button onclick="getUserRooms()">Get User Rooms</button>
+                <button onclick="getUserUnread()">Get Unread Count</button>
+            </div>
+        </div>
+        
+        <div class="chat-box">
+            <h2>Admin Chat</h2>
+            <div class="form-group">
+                <label for="adminId">Admin ID:</label>
+                <input type="text" id="adminId" placeholder="Enter admin ID">
+                <button onclick="connectAdmin()">Connect as Admin</button>
+            </div>
+            <div id="adminMessages" class="messages"></div>
+            <div class="form-group">
+                <input type="text" id="adminMessage" placeholder="Type your message">
+                <input type="text" id="targetUserId" placeholder="User ID">
+                <button onclick="sendAdminMessage()">Send</button>
+            </div>
+            <div>
+                <button onclick="getAdminRooms()">Get Admin Rooms</button>
+                <button onclick="getAdminUnread()">Get Unread Count</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:4000');
+        let currentUserId = null;
+        let currentAdminId = null;
+
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to socket server');
+        });
+
+        socket.on('userChatMessage', (data) => {
+            displayMessage('userMessages', data.message, false, data.senderId);
+            console.log('User received message:', data);
+        });
+
+        socket.on('adminChatMessage', (data) => {
+            displayMessage('adminMessages', data.message, true, data.senderId);
+            console.log('Admin received message:', data);
+        });
+
+        socket.on('userRooms', (data) => {
+            console.log('User rooms:', data);
+            alert(`User rooms: ${JSON.stringify(data.rooms)}`);
+        });
+
+        socket.on('adminRooms', (data) => {
+            console.log('Admin rooms:', data);
+            alert(`Admin rooms: ${JSON.stringify(data.rooms)}`);
+        });
+
+        socket.on('unreadCount', (data) => {
+            console.log('Unread count:', data);
+            alert(`Unread messages: ${data.unreadCount}`);
+        });
+
+        socket.on('error', (data) => {
+            console.error('Socket error:', data);
+            alert(`Error: ${data.message}`);
+        });
+
+        // Connection functions
+        function connectUser() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+            currentUserId = userId;
+            socket.emit('setUser', { userId, socketId: socket.id, isAdmin: false });
+            alert(`User ${userId} connected`);
+        }
+
+        function connectAdmin() {
+            const adminId = document.getElementById('adminId').value;
+            if (!adminId) {
+                alert('Please enter an admin ID');
+                return;
+            }
+            currentAdminId = adminId;
+            socket.emit('setUser', { userId: adminId, socketId: socket.id, isAdmin: true });
+            alert(`Admin ${adminId} connected`);
+        }
+
+        // Message functions
+        function sendUserMessage() {
+            const message = document.getElementById('userMessage').value;
+            const adminId = document.getElementById('targetAdminId').value;
+            if (!message || !adminId || !currentUserId) {
+                alert('Please fill all fields and connect as user first');
+                return;
+            }
+            socket.emit('userChatMessage', {
+                message,
+                targetAdminId: adminId,
+                senderUserId: currentUserId
+            });
+            document.getElementById('userMessage').value = '';
+            displayMessage('userMessages', message, false, currentUserId);
+        }
+
+        function sendAdminMessage() {
+            const message = document.getElementById('adminMessage').value;
+            const userId = document.getElementById('targetUserId').value;
+            if (!message || !userId || !currentAdminId) {
+                alert('Please fill all fields and connect as admin first');
+                return;
+            }
+            socket.emit('adminChatMessage', {
+                message,
+                targetUserId: userId,
+                senderAdminId: currentAdminId
+            });
+            document.getElementById('adminMessage').value = '';
+            displayMessage('adminMessages', message, true, currentAdminId);
+        }
+
+        // API call functions
+        function getUserRooms() {
+            if (!currentUserId) {
+                alert('Please connect as user first');
+                return;
+            }
+            fetch(`http://localhost:5000/chat/user/rooms/${currentUserId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User rooms API response:', data);
+                    alert(`User rooms: ${JSON.stringify(data.data)}`);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function getAdminRooms() {
+            if (!currentAdminId) {
+                alert('Please connect as admin first');
+                return;
+            }
+            fetch(`http://localhost:5000/chat/admin/rooms/${currentAdminId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Admin rooms API response:', data);
+                    alert(`Admin rooms: ${JSON.stringify(data.data)}`);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function getUserUnread() {
+            if (!currentUserId) {
+                alert('Please connect as user first');
+                return;
+            }
+            fetch(`http://localhost:5000/chat/user/unread/${currentUserId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User unread API response:', data);
+                    alert(`Unread messages: ${data.data.unreadCount}`);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function getAdminUnread() {
+            if (!currentAdminId) {
+                alert('Please connect as admin first');
+                return;
+            }
+            fetch(`http://localhost:5000/chat/admin/unread/${currentAdminId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Admin unread API response:', data);
+                    alert(`Unread messages: ${data.data.unreadCount}`);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Helper function to display messages
+        function displayMessage(containerId, message, isAdmin, senderId) {
+            const container = document.getElementById(containerId);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isAdmin ? 'admin-message' : 'user-message'}`;
+            messageDiv.textContent = `${senderId}: ${message}`;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>

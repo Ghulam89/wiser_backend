@@ -60,12 +60,12 @@ const createData = async (req, res) => {
       });
     }
 
-    if (!req.body.password) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Password is required",
-      });
-    }
+    // if (!req.body.password) {
+    //   return res.status(400).json({
+    //     status: "fail",
+    //     message: "Password is required",
+    //   });
+    // }
 
       const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(req.body.password)) {
@@ -100,52 +100,52 @@ const createData = async (req, res) => {
     }
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-    const otp = generateOTP();
+    // const otp = generateOTP();
 
     let data = await User.create({
       ...req.body,
       password: hashedPassword,
       email: lowerCaseEmail,
-      otp: otp,
-      otpExpires: new Date(Date.now() + 10 * 60 * 1000),
+      // otp: otp,
+      // otpExpires: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    const token = jwt.sign({ id: data?.id }, JWT_SECRET, { expiresIn: "48h" });
+const token = jwt.sign({ id: data?.id }, process.env.JWT_SECRET, { expiresIn: "48h" });
 
-    const emailTemplateWithOTP = `
+//     const emailTemplateWithOTP = `
            
-            <div style="background-color:#F9B134;padding:30px;display:flex;justify-content:center;align-items:center;">
-                <div style="background-color:white;border-radius:10px;padding:30px;width:100%">
-                    <h3 style="text-align:center;">Wiser</h3>
-                    <div style="width: 100%;text-align:center">
-    <img src="https://cdn-icons-png.flaticon.com/512/10646/10646637.png" width="60px" height="60px" style="object-fit: contain;">
-</div>
+//             <div style="background-color:#F9B134;padding:30px;display:flex;justify-content:center;align-items:center;">
+//                 <div style="background-color:white;border-radius:10px;padding:30px;width:100%">
+//                     <h3 style="text-align:center;">Wiser</h3>
+//                     <div style="width: 100%;text-align:center">
+//     <img src="https://cdn-icons-png.flaticon.com/512/10646/10646637.png" width="60px" height="60px" style="object-fit: contain;">
+// </div>
 
-                    <h3 style="text-align:center;">Here is your One Time Password</h3>
-                    <p style="text-align:center;">to validate your email address</p>
-                    <div style="margin:30px 0px;">
-                        <h3 style="text-align:center;letter-spacing:18px;font-size:30px;">${otp}</h3>
-                    </div>
-                    <p style="line-height:1.6;margin-bottom:20px;text-align:center;">Thank you for your requesting.</p>
-                </div>
-            </div>
-        `;
+//                     <h3 style="text-align:center;">Here is your One Time Password</h3>
+//                     <p style="text-align:center;">to validate your email address</p>
+//                     <div style="margin:30px 0px;">
+//                         <h3 style="text-align:center;letter-spacing:18px;font-size:30px;">${otp}</h3>
+//                     </div>
+//                     <p style="line-height:1.6;margin-bottom:20px;text-align:center;">Thank you for your requesting.</p>
+//                 </div>
+//             </div>
+//         `;
 
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: data?.email,
-      subject: "Your Verification Code",
-      html: emailTemplateWithOTP,
-    };
+//     const mailOptions = {
+//       from: process.env.EMAIL,
+//       to: data?.email,
+//       subject: "Your Verification Code",
+//       html: emailTemplateWithOTP,
+//     };
 
-    // Send email with OTP
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-      } else {
-        console.log("Email sent:", info.response);
-      }
-    });
+//     // Send email with OTP
+//     transporter.sendMail(mailOptions, (error, info) => {
+//       if (error) {
+//         console.error("Error sending email:", error);
+//       } else {
+//         console.log("Email sent:", info.response);
+//       }
+//     });
 
     res.status(200).json({
       status: "success",

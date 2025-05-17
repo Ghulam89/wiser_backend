@@ -1,242 +1,195 @@
-const db = require("../models/index.js");
+const { chatRoom, chatMessage, admin, user } = require("../models/index.js");
 const { Op } = require("sequelize");
-// Helper function to get user socket ID
+
+// Store active connections
+const activeConnections = {};
+
+async function storeSocketConnection(userId, socketId, isAdmin) {
+    activeConnections[socketId] = { userId, isAdmin };
+    if (isAdmin) {
+        console.log(`Admin ${userId} connected with socket ID ${socketId}`);
+    } else {
+        console.log(`User ${userId} connected with socket ID ${socketId}`);
+    }
+}
+
+async function removeSocketConnection(socketId) {
+    if (activeConnections[socketId]) {
+        const { userId, isAdmin } = activeConnections[socketId];
+        delete activeConnections[socketId];
+        console.log(`${isAdmin ? 'Admin' : 'User'} ${userId} disconnected`);
+    }
+}
+
 async function getUserSocketId(userId) {
-  // Implement your logic to get socket ID from your storage
+    for (const [socketId, data] of Object.entries(activeConnections)) {
+        if (!data.isAdmin && data.userId == userId) {
+            return socketId;
+        }
+    }
+    return null;
 }
 
-// Helper function to get admin socket ID
 async function getAdminSocketId(adminId) {
-  // Implement your logic to get socket ID from your storage
+    for (const [socketId, data] of Object.entries(activeConnections)) {
+        if (data.isAdmin && data.userId == adminId) {
+            return socketId;
+        }
+    }
+    return null;
 }
 
-// Get or create a chat room between admin and user
-exports.getOrCreateRoom = async (req, res) => {
-  try {
-    const { adminId, userId } = req.params;
-
-    let room = await db.chatRoom.findOne({
-      where: {
-        adminId,
-        userId
-      }
+async function getOrCreateAdminRoom(adminId, userId) {
+    let room = await chatRoom.findOne({
+        where: {
+            adminId,
+            userId
+        }
     });
 
     if (!room) {
-      room = await db.chatRoom.create({
-        adminId,
-        userId,
-        lastActivity: new Date()
-      });
+        room = await chatRoom.create({
+            adminId,
+            userId,
+            lastActivity: new Date()
+        });
     }
 
-    res.status(200).json({
-      status: "success",
-      data: room
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get or create chat room"
-    });
-  }
-};
+    return room;
+}
 
-// Get all messages in a room
-exports.getRoomMessages = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-
-    const messages = await db.chatMessage.findAll({
-      where: { roomId },
-      order: [['createdAt', 'ASC']]
+async function storeMessage(roomId, senderId, content, isAdmin) {
+    const message = await chatMessage.create({
+        roomId,
+        content,
+        isAdmin,
+        isRead: false
     });
 
-    res.status(200).json({
-      status: "success",
-      data: messages
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get room messages"
-    });
-  }
-};
-
-// Get all rooms for a user
-exports.getUserRooms = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const rooms = await db.chatRoom.findAll({
-      where: { userId },
-      include: [
-        {
-          model: db.admin,
-          attributes: ['id', 'name', 'email']
-        },
-        {
-          model: db.chatMessage,
-          as: 'messages',
-          order: [['createdAt', 'DESC']],
-          limit: 1
-        }
-      ],
-      order: [['lastActivity', 'DESC']]
-    });
-
-    res.status(200).json({
-      status: "success",
-      data: rooms
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get user rooms"
-    });
-  }
-};
-
-// Get all rooms for an admin
-exports.getAdminRooms = async (req, res) => {
-  try {
-    const { adminId } = req.params;
-
-    const rooms = await db.chatRoom.findAll({
-      where: { adminId },
-      include: [
-        {
-          model: db.user,
-          attributes: ['id', 'fullName', 'email', 'phone']
-        },
-        {
-          model: db.chatMessage,
-          as: 'messages',
-          order: [['createdAt', 'DESC']],
-          limit: 1
-        }
-      ],
-      order: [['lastActivity', 'DESC']]
-    });
-
-    res.status(200).json({
-      status: "success",
-      data: rooms
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get admin rooms"
-    });
-  }
-};
-
-// Mark messages as read
-exports.markMessagesAsRead = async (req, res) => {
-  try {
-    const { roomId, userId } = req.params;
-
-    await db.chatMessage.update(
-      { isRead: true },
-      {
-        where: {
-          roomId,
-          isAdmin: false,
-          isRead: false
-        }
-      }
+    // Update room's last activity
+    await chatRoom.update(
+        { lastActivity: new Date() },
+        { where: { id: roomId } }
     );
 
-    res.status(200).json({
-      status: "success",
-      message: "Messages marked as read"
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to mark messages as read"
-    });
-  }
-};
+    return message;
+}
 
-// Get unread message count for admin
-exports.getAdminUnreadCount = async (req, res) => {
-  try {
-    const { adminId } = req.params;
+async function getUserRooms(userId, isAdmin) {
+    const options = {
+        include: [
+            {
+                model: chatMessage,
+                as: 'messages',
+                order: [['createdAt', 'DESC']],
+                limit: 1
+            }
+        ],
+        order: [['lastActivity', 'DESC']]
+    };
 
-    const rooms = await db.chatRoom.findAll({
-      where: { adminId },
-      include: [
-        {
-          model: db.chatMessage,
-          as: 'messages',
-          where: {
-            isAdmin: false,
-            isRead: false
-          },
-          required: false
-        }
-      ]
-    });
+    if (isAdmin) {
+        options.where = { adminId: userId };
+        options.include.push({
+            model: user,
+            attributes: ['id', 'fullName', 'email', 'phone']
+        });
+    } else {
+        options.where = { userId };
+        options.include.push({
+            model: admin,
+            attributes: ['id', 'name', 'email']
+        });
+    }
 
-    let totalUnread = 0;
-    rooms.forEach(room => {
-      totalUnread += room.messages.length;
-    });
+    return await chatRoom.findAll(options);
+}
 
-    res.status(200).json({
-      status: "success",
-      data: { unreadCount: totalUnread }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get unread count"
-    });
-  }
-};
+async function refreshRoomsForParticipants(io, adminId, userId) {
+    const adminSocketId = await getAdminSocketId(adminId);
+    const userSocketId = await getUserSocketId(userId);
 
-// Get unread message count for user
-exports.getUserUnreadCount = async (req, res) => {
-  try {
-    const { userId } = req.params;
+    if (adminSocketId) {
+        const adminRooms = await getUserRooms(adminId, true);
+        io.to(adminSocketId).emit('adminRooms', { rooms: adminRooms });
+    }
 
-    const rooms = await db.chatRoom.findAll({
-      where: { userId },
-      include: [
-        {
-          model: db.chatMessage,
-          as: 'messages',
-          where: {
-            isAdmin: true,
-            isRead: false
-          },
-          required: false
-        }
-      ]
-    });
+    if (userSocketId) {
+        const userRooms = await getUserRooms(userId, false);
+        io.to(userSocketId).emit('userRooms', { rooms: userRooms });
+    }
+}
 
-    let totalUnread = 0;
-    rooms.forEach(room => {
-      totalUnread += room.messages.length;
-    });
+function initializeSocket(io) {
+    io.on('connection', (socket) => {
+        console.log('New connection:', socket.id);
 
-    res.status(200).json({
-      status: "success",
-      data: { unreadCount: totalUnread }
+        socket.on('setUser', async ({ userId, isAdmin = false }) => {
+            try {
+                if (userId) {
+                    await storeSocketConnection(userId, socket.id, isAdmin);
+                    console.log(`${isAdmin ? 'Admin' : 'User'} ${userId} connected with socket id ${socket.id}`);
+
+                    const rooms = await getUserRooms(userId, isAdmin);
+                    socket.emit(isAdmin ? 'adminRooms' : 'userRooms', { rooms });
+                }
+            } catch (err) {
+                console.error('Error setting user:', err);
+                socket.emit('error', { message: 'Connection error', details: err.message });
+            }
+        });
+
+        socket.on('adminChatMessage', async ({ message, targetUserId, senderAdminId }) => {
+            try {
+                const room = await getOrCreateAdminRoom(senderAdminId, targetUserId);
+                await storeMessage(room.id, senderAdminId, message, true);
+
+                const targetSocketId = await getUserSocketId(targetUserId);
+                if (targetSocketId) {
+                    io.to(targetSocketId).emit('adminChatMessage', {
+                        senderId: senderAdminId,
+                        message,
+                        isAdmin: true
+                    });
+                }
+
+                refreshRoomsForParticipants(io, senderAdminId, targetUserId);
+            } catch (err) {
+                console.error('Admin chat error:', err);
+                socket.emit('error', { message: 'Failed to send message', details: err.message });
+            }
+        });
+
+        socket.on('userChatMessage', async ({ message, targetAdminId, senderUserId }) => {
+            try {
+                const room = await getOrCreateAdminRoom(targetAdminId, senderUserId);
+                await storeMessage(room.id, senderUserId, message, false);
+
+                const targetSocketId = await getAdminSocketId(targetAdminId);
+                if (targetSocketId) {
+                    io.to(targetSocketId).emit('userChatMessage', {
+                        senderId: senderUserId,
+                        message,
+                        isAdmin: false
+                    });
+                }
+
+                refreshRoomsForParticipants(io, targetAdminId, senderUserId);
+            } catch (err) {
+                console.error('User chat error:', err);
+                socket.emit('error', { message: 'Failed to send message', details: err.message });
+            }
+        });
+
+        socket.on('disconnect', async () => {
+            try {
+                await removeSocketConnection(socket.id);
+                console.log('User disconnected:', socket.id);
+            } catch (err) {
+                console.error('Error handling disconnect:', err);
+            }
+        });
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      status: "error",
-      message: "Failed to get unread count"
-    });
-  }
-};
+}
+
+module.exports = { initializeSocket };
