@@ -18,8 +18,6 @@
 
 // module.exports = router;
 
-
-
 const express = require("express");
 const router = express.Router();
 const chatController = require("../controller/chatController");
@@ -29,6 +27,7 @@ router.get("/user/rooms/:userId", chatController.getUserRooms);
 router.get("/user/unread/:userId",  chatController.getUserUnreadCount);
 
 // Admin routes
+
 router.get("/admin/rooms/:adminId", chatController.getAdminRooms);
 router.get("/admin/unread/:adminId", chatController.getAdminUnreadCount);
 

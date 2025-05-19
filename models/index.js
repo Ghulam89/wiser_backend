@@ -44,9 +44,33 @@ function setupAssociations() {
     onUpdate: "CASCADE",
   });
 
-  db.admin.hasMany(db.chatRoom, { foreignKey: 'adminId', as: 'chatRooms' });
-  db.user.hasMany(db.chatRoom, { foreignKey: 'userId', as: 'chatRooms' });
-  db.chatRoom.hasMany(db.chatMessage, { foreignKey: 'roomId', as: 'messages' });
+ 
+  // Chat associations
+  db.admin.hasMany(db.chatRoom, { 
+    foreignKey: 'adminId', 
+    as: 'chatRooms' 
+  });
+  
+  db.user.hasMany(db.chatRoom, { 
+    foreignKey: 'userId', 
+    as: 'chatRooms' 
+  });
+  
+  db.chatRoom.belongsTo(db.admin, { 
+    foreignKey: 'adminId', 
+    as: 'admin' 
+  });
+  
+  db.chatRoom.belongsTo(db.user, { 
+    foreignKey: 'userId', 
+    as: 'user' 
+  });
+
+  db.chatRoom.hasMany(db.chatMessage, { 
+    foreignKey: 'roomId', 
+    as: 'messages',
+    onDelete: 'CASCADE'
+  });
 
   db.subCategory.belongsTo(db.category, {
     foreignKey: "categoryId",

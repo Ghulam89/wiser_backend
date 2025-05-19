@@ -12,7 +12,6 @@ const bodyParser = require("body-parser");
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
-
 app.use(express.static("public"));
 app.use('/images', express.static('images'));
 // app.use(express.static(path.join(__dirname, 'public')));
@@ -28,20 +27,10 @@ const adminRouter = require("./routes/adminRoutes.js");
 const categoryRouter = require("./routes/categoryRoutes.js");
 const subCategoryRouter = require("./routes/subCategoryRoutes.js");
 const servieRouter = require("./routes/serviceRoutes.js");
-// const chatRouter = require("./routes/chatRoutes.js");
+const chatRouter = require("./routes/chatRoutes.js");
 const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
-const { initializeSocket } = require("./controller/chatController.js");
-
-
-const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-    }
-});
-
+const initializeSocket = require("./sockets/chat.js");
 app.get('/screenshot', async (req, res) => {
   const { url } = req.query;
   const outputFile = path.join(__dirname, 'screenshot.png');
@@ -71,7 +60,7 @@ app.use("/service", servieRouter);
 app.use("/category", categoryRouter);
 app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
-// app.use("/chat", chatRouter);
+app.use("/chat", chatRouter);
 // Root route
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -104,17 +93,19 @@ app.use("*", (req, res) => {
   });
 });
 
-
+const server = http.createServer(app);
+const io = socketIo(server, {
+     cors: {
+        cors: true,
+    }
+});
 
 initializeSocket(io);
   
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running on port ${port}`);
+
+  
 });
 
 
-server.listen(4000, () => {
-    console.log(`Server is running on 4000`);
-
-    
-});

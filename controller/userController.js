@@ -1,8 +1,8 @@
 const db = require("../models/index.js");
 const { Op } = require("sequelize");
-const { JWT_SECRET, url } = require("../config/config.js");
+const { JWT_SECRET, url, emailUser, emailPassword, emailHost, emailPort } = require("../config/config.js");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 // create main model
 const User = db.user;
@@ -10,11 +10,11 @@ const User = db.user;
 const transporter = nodemailer.createTransport({
   service: "gmail",
   host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
+  port: process.env.EMAIL_PORT, 
   secure: false,
   auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASSWORD,
+    user:process.env.EMAIL,
+    pass:process.env.EMAIL_PASSWORD,
   },
   tls: {
     rejectUnauthorized: false,
@@ -98,13 +98,13 @@ const createData = async (req, res) => {
         });
       }
     }
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+    // const saltRounds = 10;
+    // const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
     // const otp = generateOTP();
 
     let data = await User.create({
       ...req.body,
-      password: hashedPassword,
+      password: req.body.password,
       email: lowerCaseEmail,
       // otp: otp,
       // otpExpires: new Date(Date.now() + 10 * 60 * 1000),
@@ -213,7 +213,7 @@ const sendOTP = async (req, res) => {
 
     
     const mailOptions = {
-      from: process.env.EMAIL,
+      from:process.env.EMAIL,   
       to: user.email,
       subject: "Your Verification Code",
       html: emailTemplateWithOTP,
@@ -448,6 +448,20 @@ const loginData = async (req, res) => {
       });
     }
 
+
+      if (user.unverified) {
+      return res.status(403).json({
+        status: "fail",
+        message: "Account not verified. Please verify your account.",
+      });
+    }
+      if (user.status !== 'active') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Account not active. Please contact your support.",
+      });
+    }
+
     if (user.isMarkedForDeletion) {
       const daysLeft = Math.ceil(
         (new Date(user.deletionDate) - new Date()) / (1000 * 60 * 60 * 24)
@@ -465,9 +479,9 @@ const loginData = async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordValid) {
+    if (user.password!==req.body.password) {
       const updatedFailedAttempts = user.failedLoginAttempts + 1;
       let updateData = { failedLoginAttempts: updatedFailedAttempts };
 
@@ -487,7 +501,7 @@ const loginData = async (req, res) => {
           message: "Account blocked for 30 minutes due to failed attempts",
         });
       }
-
+      
       return res.status(401).json({
         status: "fail",
         message: `Wrong password. ${
@@ -568,10 +582,10 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     await user.update({
-      password: hashedPassword,
+      password: password,
       otp: null,
       otpExpires: null,
     });

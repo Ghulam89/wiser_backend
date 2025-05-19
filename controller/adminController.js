@@ -2,7 +2,7 @@ const db = require("../models/index.js");
 const { Op } = require("sequelize");
 const { JWT_SECRET, url } = require("../config/config.js");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 // create main model
 const Admin = db.admin;
@@ -88,7 +88,7 @@ const createData = async (req, res) => {
     //   });
     // }
 
- const { name, email, password,role} = req.body;
+ const { name, email, password,role,description} = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -112,8 +112,8 @@ const createData = async (req, res) => {
     }
 
     // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    // const saltRounds = 10;
+    // const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         const adminRole = role || 'Super Admin';
     const permissions = setDefaultPermissions(adminRole);
@@ -122,8 +122,9 @@ const createData = async (req, res) => {
     const admin = await Admin.create({
      name,
       email: lowerCaseEmail,
-      password: hashedPassword,
+      password: password,
       role: adminRole,
+      description:description,
       permissions
     });
 
@@ -408,7 +409,7 @@ const getDataById = async (req, res) => {
 
     let data = await Admin.findOne({
       where: { id: id },
-      attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin']
+      attributes: ['id', 'name', 'email', 'role','description', 'permissions', 'lastLogin']
     });
 
     if (!data) {
@@ -454,9 +455,9 @@ const loginData = async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    // const isPasswordValid = await bcrypt.compare(password, admin.password);
 
-    if (!isPasswordValid) {
+    if (admin.password!==password) {
       return res.status(401).json({
         status: "fail",
         message: "Invalid email or password",
@@ -534,10 +535,10 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     await admin.update({
-      password: hashedPassword,
+      password: password,
       otp: null,
       otpExpires: null,
     });
@@ -607,12 +608,14 @@ const updateData = async (req, res) => {
     const updateFields = {
       ...req.body,
       email: lowerCaseEmail ? lowerCaseEmail : adminToUpdate.email,
+      password:req.body.password
     };
 
-    if (req.body.password) {
-      const saltRounds = 10;
-      updateFields.password = await bcrypt.hash(req.body.password, saltRounds);
-    }
+    // if (req.body.password) {
+    //   const saltRounds = 10;
+    //  await updateFields.password
+    //   updateFields.password = await bcrypt.hash(req.body.password, saltRounds);
+    // }
 
     if (role && role !== 'Super Admin') {
       return res.status(403).json({

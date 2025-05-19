@@ -1,77 +1,303 @@
+const db = require("../models/index.js");
+const { Op } = require("sequelize");
+const optionTemplates = require("../utils/optionTemplates.js");
 
+const activeConnections = {
+    users: {},
+    admins: {}
+};
 
+const connectionManager = {
+    addConnection: (userId, socketId, isAdmin) => {
+        console.log(userId, socketId, isAdmin);
+        
+        const store = isAdmin ? activeConnections.admins : activeConnections.users;
+        store[userId] = socketId;
+        console.log(`${isAdmin ? 'Admin' : 'User'} ${userId} connected with socket ID ${socketId}`);
+    },
+
+    removeConnection: (socketId) => {
+        // Check admins first
+        for (const [adminId, sockId] of Object.entries(activeConnections.admins)) {
+            if (sockId === socketId) {
+                delete activeConnections.admins[adminId];
+                console.log(`Admin ${adminId} disconnected`);
+                return;
+            }
+        }
+
+        // Check users if not found in admins
+        for (const [userId, sockId] of Object.entries(activeConnections.users)) {
+            if (sockId === socketId) {
+                delete activeConnections.users[userId];
+                console.log(`User ${userId} disconnected`);
+                return;
+            }
+        }
+    },
+
+    getUserSocket: (userId) => activeConnections.users[userId],
+    getAdminSocket: (adminId) => activeConnections.admins[adminId]
+};
+
+// Chat Room Operations
+const chatRoomService = {
+    getOrCreateRoom: async (adminId, userId) => {
+        const [room,created] = await db.chatRoom.findOrCreate({
+            where: { adminId, userId },
+            defaults: {
+                adminId,
+                userId,
+                lastActivity: new Date()
+            }
+        });
+        if (created) {
+            await db.chatMessage.create({
+                roomId: room.id,
+                content: optionTemplates.initialOptions.text,
+                isAdmin: true,
+                isRead: false,
+                messageType: 'options',
+                options: optionTemplates.initialOptions.options
+            });
+        }
+        return room;
+    },
+
+    storeMessage: async (roomId, senderId, content, isAdmin) => {
+        const transaction = await db.sequelize.transaction();
+        try {
+            const message = await db.chatMessage.create({
+                roomId,
+                content,
+                isAdmin,
+                isRead: false,
+                
+            }, { transaction });
+
+            await db.chatRoom.update(
+                { lastActivity: new Date() },
+                { where: { id: roomId }, transaction }
+            );
+
+            await transaction.commit();
+            return message;
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
+    },
+
+    getUserRooms: async (userId, isAdmin) => {
+        const include = [
+            {
+                model: db.chatMessage,
+                as: 'messages',
+                separate: true,
+                order: [['createdAt', 'DESC']],
+                limit: 1
+            }
+        ];
+
+        if (isAdmin) {
+            include.push({
+                model: db.user,
+                as: 'user',
+                attributes: ['id', 'fullName', 'email', 'phone']
+            });
+        } else {
+            include.push({
+                model: db.admin,
+                as: 'admin',
+                attributes: ['id', 'name', 'email']
+            });
+        }
+
+        return await db.chatRoom.findAll({
+            where: isAdmin ? { adminId: userId } : { userId },
+            include,
+            order: [['lastActivity', 'DESC']]
+        });
+    },
+
+    markMessagesAsRead: async (roomId, userId, isAdmin) => {
+        await db.chatMessage.update(
+            { isRead: true },
+            {
+                where: {
+                    roomId,
+                    isAdmin: !isAdmin, // Mark messages from the other party as read
+                    isRead: false
+                }
+            }
+        );
+    }
+};
+
+// Notification Service
+const notificationService = {
+    refreshRooms: async (io, adminId, userId) => {
+        const promises = [];
+        
+        if (adminId) {
+            const adminSocketId = connectionManager.getAdminSocket(adminId);
+            if (adminSocketId) {
+                promises.push(
+                    chatRoomService.getUserRooms(adminId, true)
+                        .then(rooms => io.to(adminSocketId).emit('adminRooms', { rooms }))
+                );
+            }
+        }
+
+        if (userId) {
+            const userSocketId = connectionManager.getUserSocket(userId);
+            if (userSocketId) {
+                promises.push(
+                    chatRoomService.getUserRooms(userId, false)
+                        .then(rooms => io.to(userSocketId).emit('userRooms', { rooms }))
+                );
+            }
+        }
+
+        await Promise.all(promises);
+    },
+
+    notifyNewMessage: (io, { toAdmin, toUser, message, senderId, isAdmin }) => {
+        if (toAdmin) {
+            const adminSocketId = connectionManager.getAdminSocket(toAdmin);
+            if (adminSocketId) {
+                io.to(adminSocketId).emit('newMessage', {
+                    senderId,
+                    message,
+                    isAdmin,
+                    isOwnMessage: false
+                });
+            }
+        }
+
+        if (toUser) {
+            const userSocketId = connectionManager.getUserSocket(toUser);
+            if (userSocketId) {
+                io.to(userSocketId).emit('newMessage', {
+                    senderId,
+                    message,
+                    isAdmin,
+                    isOwnMessage: false
+                });
+            }
+        }
+    }
+};
+
+// Socket Event Handlers
+const socketHandlers = {
+    handleSetUser: async (socket, { userId, isAdmin = false }) => {
+        if (!userId) throw new Error('User ID is required');
+        
+        connectionManager.addConnection(userId, socket.id, isAdmin);
+        const rooms = await chatRoomService.getUserRooms(userId, isAdmin);
+        socket.emit(isAdmin ? 'adminRooms' : 'userRooms', { rooms });
+    },
+
+    handleAdminMessage: async (socket,io, { message, targetUserId, senderAdminId, isOptions = false, options = [] }) => {
+        console.log(message);
+        
+        const room = await chatRoomService.getOrCreateRoom(senderAdminId, targetUserId);
+
+         const messageData = {
+        roomId: room.id,
+        content: message,
+        isAdmin: true,
+        isRead: false
+    };
+
+    if (isOptions) {
+        messageData.messageType = 'options';
+        messageData.options = options;
+    }
+     await db.chatMessage.create(messageData);
+
+        
+        notificationService.notifyNewMessage(io, {
+           toUser: targetUserId,
+        message,
+        senderId: senderAdminId,
+        isAdmin: true,
+        isOptions,
+        options
+            
+        });
+        
+        await notificationService.refreshRooms(io, senderAdminId, targetUserId);
+    },
+
+    handleUserMessage: async (socket, io, { message, targetAdminId, senderUserId, isOptionResponse, optionValue }) => {
+    const room = await chatRoomService.getOrCreateRoom(targetAdminId, senderUserId);
+    
+    await db.chatMessage.create({
+        roomId: room.id,
+        content: message,
+        isAdmin: false,
+        isRead: false,
+        ...(isOptionResponse && { isOptionResponse: true, optionValue })
+    });
+    
+    notificationService.notifyNewMessage(io, {
+        toAdmin: targetAdminId,
+        message,
+        senderId: senderUserId,
+        isAdmin: false,
+        isOptionResponse,
+        optionValue
+    });
+    
+    await notificationService.refreshRooms(io, targetAdminId, senderUserId);
+},
+
+    handleMarkAsRead: async (socket, { roomId, userId, isAdmin }) => {
+        await chatRoomService.markMessagesAsRead(roomId, userId, isAdmin);
+    }
+};
+
+// Main Socket Initialization
 function initializeSocket(io) {
     io.on('connection', (socket) => {
         console.log('New connection:', socket.id);
 
-        socket.on('setUser', async ({ userId, socketId, isAdmin = false }) => {
+        // Error wrapper for socket events
+        const withErrorHandling = (handler) => async (...args) => {
             try {
-                if (userId) {
-                    await storeSocketConnection(userId, socketId, isAdmin);
-                    console.log(`${isAdmin ? 'Admin' : 'User'} ${userId} connected with socket id ${socket.id}`);
-
-                    const rooms = await getUserRooms(userId, isAdmin);
-                    io.to(socketId).emit('userRooms', { rooms });
-                }
+                await handler(...args);
             } catch (err) {
-                console.error('Error setting user:', err);
-                socket.emit('error', { message: 'Connection error' });
+                console.error('Socket error:', err);
+                socket.emit('error', { message: err.message || 'An error occurred' });
             }
-        });
+        };
 
-        socket.on('adminChatMessage', async ({ message, targetUserId, senderAdminId }) => {
-            try {
-                const room = await getOrCreateAdminRoom(senderAdminId, targetUserId);
-                await storeMessage(room.id, senderAdminId, message, true);
+        // Event listeners
+        socket.on('setUser', withErrorHandling(
+            (data) => socketHandlers.handleSetUser(socket, data)
+        ));
 
-                const targetSocketId = await getUserSocketId(targetUserId);
-                if (targetSocketId) {
-                    io.to(targetSocketId).emit('adminChatMessage', {
-                        senderId: senderAdminId,
-                        message,
-                        isAdmin: true
-                    });
+        socket.on('adminChatMessage', withErrorHandling(
+            (data) => {
+                  console.log(data);
+                  
+                socketHandlers.handleAdminMessage(socket,io,data)}
+        ));
 
-                    refreshRoomsForParticipants(io, senderAdminId, targetUserId);
-                }
-            } catch (err) {
-                console.error('Admin chat error:', err);
-                socket.emit('error', { message: 'Failed to send message' });
-            }
-        });
+        socket.on('userChatMessage', withErrorHandling(
+            (data) => socketHandlers.handleUserMessage(socket,io, data)
+        ));
 
-        socket.on('userChatMessage', async ({ message, targetAdminId, senderUserId }) => {
-            try {
-                const room = await getOrCreateAdminRoom(targetAdminId, senderUserId);
-                await storeMessage(room.id, senderUserId, message, false);
+        socket.on('markAsRead', withErrorHandling(
+            (data) => socketHandlers.handleMarkAsRead(socket, data)
+        ));
 
-                const targetSocketId = await getAdminSocketId(targetAdminId);
-                if (targetSocketId) {
-                    io.to(targetSocketId).emit('userChatMessage', {
-                        senderId: senderUserId,
-                        message,
-                        isAdmin: false
-                    });
-
-                    refreshRoomsForParticipants(io, targetAdminId, senderUserId);
-                }
-            } catch (err) {
-                console.error('User chat error:', err);
-                socket.emit('error', { message: 'Failed to send message' });
-            }
-        });
-
-        socket.on('disconnect', async () => {
-             try {
-                await removeSocketConnection(socket.id);
-                console.log('User disconnected:', socket.id);
-            } catch (err) {
-                console.error('Error handling disconnect:', err);
-            }
+        socket.on('disconnect', () => {
+            connectionManager.removeConnection(socket.id);
         });
     });
 }
 
-
-
-module.exports = { initializeSocket };
+module.exports = initializeSocket;

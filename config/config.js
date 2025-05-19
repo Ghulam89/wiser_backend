@@ -7,9 +7,12 @@ module.exports = {
   dialect: "mysql",
   JWT_SECRET: "mysecretkey",
   sessionSecret: "hfhahhafajuamfaafamdfarnfnayrefabyfamfhuaeahfa",
-  emailUser: "wolfstech25@gmail.com",
-  emailPassword: "gsjsprtdyhrhlasa",
-  url: "http://localhost:5000",
+  emailUser: "muslimwearsofficials@gmail.com",
+  emailPassword: "fmogzhovwlnadfoq",
+emailHost:"smtp.gmail.com",
+emailPort:587,
+  // url: "http://localhost:5000",
+  url: "http://app.oncloudapi.com",
 
   pool: {
     max: 5,

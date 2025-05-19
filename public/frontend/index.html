@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat UI - User</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .chat-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .received {
+            background-color: #e9e9e9;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        .sent {
+            background-color: #0084ff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+            margin-left: auto;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+        .rooms-container {
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .room-item {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        .room-item:hover {
+            background-color: #eee;
+        }
+        .unread-count {
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <h2>User Chat</h2>
+            <div id="userStatus" class="status disconnected">Disconnected</div>
+        </div>
+        
+        <div class="connection-form">
+            <div class="input-area">
+                <input type="text" id="userId" placeholder="Enter your user ID">
+                <button onclick="connectUser()">Connect</button>
+            </div>
+        </div>
+        
+        <div id="userMessages" class="messages"></div>
+        
+        <div class="input-area">
+            <input type="text" id="userMessage" placeholder="Type your message" disabled>
+            <button onclick="sendUserMessage()" disabled id="sendButton">Send</button>
+        </div>
+        <div class="input-area">
+            <input type="text" id="targetAdminId" placeholder="Admin ID to message">
+        </div>
+        
+        <div class="rooms-container">
+            <h3>Your Conversations</h3>
+            <div id="userRoomsList"></div>
+            <button onclick="getUserRooms()" style="margin-top: 10px;">Refresh Conversations</button>
+            <div id="userUnreadCount" class="info-text">Unread messages: 0</div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:5000', {
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+        
+        let currentUserId = null;
+
+        // Socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to socket server');
+            updateConnectionStatus();
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from socket server');
+            updateConnectionStatus();
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('Connection error:', err);
+            alert(`Connection error: ${err.message}`);
+        });
+
+        socket.on('userChatMessage', (data) => {
+            console.log('Received message:', data);
+            displayMessage('userMessages', data.message, false, data.senderId);
+        });
+
+        socket.on('messageDelivered', (data) => {
+            console.log('Message delivered to:', data.recipientId);
+        });
+
+        socket.on('userRooms', (data) => {
+            console.log('User rooms:', data);
+            displayRooms('userRoomsList', data.rooms);
+        });
+
+        socket.on('unreadCount', (data) => {
+            console.log('Unread count:', data);
+            if (data.userId && data.userId === currentUserId) {
+                document.getElementById('userUnreadCount').textContent = `Unread messages: ${data.unreadCount}`;
+            }
+        });
+
+        socket.on('roomUpdate', (data) => {
+            console.log('Room update received:', data);
+            if (data.userId && data.userId === currentUserId) {
+                displayRooms('userRoomsList', data.rooms);
+            }
+        });
+
+        socket.on('error', (data) => {
+            console.error('Socket error:', data);
+            alert(`Error: ${data.message}`);
+        });
+
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('userStatus');
+            if (currentUserId) {
+                statusElement.textContent = `Connected as ${currentUserId}`;
+                statusElement.className = 'status connected';
+                document.getElementById('userMessage').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+            } else {
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'status disconnected';
+                document.getElementById('userMessage').disabled = true;
+                document.getElementById('sendButton').disabled = true;
+            }
+        }
+
+        function connectUser() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+            currentUserId = userId;
+            socket.emit('setUser', { userId, isAdmin: false });
+            updateConnectionStatus();
+            
+            // Request initial rooms after connection
+            getUserRooms();
+            getUserUnread();
+        }
+
+        function sendUserMessage() {
+            const message = document.getElementById('userMessage').value;
+            const adminId = document.getElementById('targetAdminId').value;
+            if (!message || !adminId || !currentUserId) {
+                alert('Please fill all fields and connect first');
+                return;
+            }
+
+            socket.emit('userChatMessage', {
+                message,
+                targetAdminId: adminId,
+                senderUserId: currentUserId
+            }, (ack) => {
+                if (ack && ack.success) {
+                    console.log('Server acknowledged message:', ack);
+                } else {
+                    console.error('Message not acknowledged:', ack);
+                }
+            });
+
+            document.getElementById('userMessage').value = '';
+            displayMessage('userMessages', message, true, currentUserId);
+        }
+
+        function getUserRooms() {
+            if (!currentUserId) {
+                alert('Please connect first');
+                return;
+            }
+            fetch(`http://localhost:5000/chat/user/rooms/${currentUserId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User rooms API response:', data);
+                    displayRooms('userRoomsList', data.data);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function getUserUnread() {
+            if (!currentUserId) {
+                return;
+            }
+            fetch(`http://localhost:5000/chat/user/unread/${currentUserId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User unread API response:', data);
+                    document.getElementById('userUnreadCount').textContent = `Unread messages: ${data.data.unreadCount}`;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function displayMessage(containerId, message, isAdmin, senderId = '') {
+            const container = document.getElementById(containerId);
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isAdmin ? true : false);
+            
+            messageDiv.textContent = senderId ? `${senderId}: ${message}` : message;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function displayRooms(containerId, rooms) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            if (!rooms || rooms.length === 0) {
+                container.innerHTML = '<p>No conversations yet</p>';
+                return;
+            }
+            
+            rooms.forEach(room => {
+                const roomItem = document.createElement('div');
+                roomItem.className = 'room-item';
+                
+                if (room.adminId) {
+                    roomItem.innerHTML = `Admin: ${room.adminId}`;
+                    roomItem.onclick = () => {
+                        document.getElementById('targetAdminId').value = room.adminId;
+                    };
+                }
+                
+                if (room.unreadCount > 0) {
+                    const unreadBadge = document.createElement('span');
+                    unreadBadge.className = 'unread-count';
+                    unreadBadge.textContent = room.unreadCount;
+                    roomItem.appendChild(unreadBadge);
+                }
+                
+                container.appendChild(roomItem);
+            });
+        }
+    </script>
+</body>
+</html>
