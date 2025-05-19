@@ -199,7 +199,7 @@ const socketHandlers = {
         socket.emit(isAdmin ? 'adminRooms' : 'userRooms', { rooms });
     },
 
-    handleAdminMessage: async (socket,io, { message, targetUserId, senderAdminId, isOptions = false, options = [] }) => {
+    handleAdminMessage: async (socket, io, { message, targetUserId, senderAdminId, isOptions = false, options = [], isTicketResponse = false, ticketNumber }) => {
         console.log(message);
         
         const room = await chatRoomService.getOrCreateRoom(senderAdminId, targetUserId);
@@ -212,23 +212,76 @@ const socketHandlers = {
     };
 
     if (isOptions) {
-        messageData.messageType = 'options';
-        messageData.options = options;
-    }
+            messageData.messageType = 'options';
+            messageData.options = options;
+        } else if (isTicketResponse) {
+            messageData.messageType = 'ticket';
+            messageData.ticketNumber = ticketNumber;
+        }
      await db.chatMessage.create(messageData);
 
         
         notificationService.notifyNewMessage(io, {
            toUser: targetUserId,
-        message,
-        senderId: senderAdminId,
-        isAdmin: true,
-        isOptions,
-        options
+            message,
+            senderId: senderAdminId,
+            isAdmin: true,
+            isOptions,
+            options,
+            isTicketResponse,
+            ticketNumber
             
         });
         
         await notificationService.refreshRooms(io, senderAdminId, targetUserId);
+    },
+
+     handleTicketSubmission: async (socket, io, { ticketNumber, formData, userId }) => {
+        const transaction = await db.sequelize.transaction();
+        try {
+            // Find the ticket
+            const ticket = await db.ticketSupport.findOne({
+                where: { ticketNumber },
+                transaction
+            });
+
+            if (!ticket) {
+                throw new Error('Ticket not found');
+            }
+
+            // Update ticket with form data
+            await db.ticketSupport.update({
+                issue: formData.issue,
+                description: formData.description,
+                subject: formData.subject,
+                priority: formData.priority,
+                status: 'in_progress',
+                updatedAt: new Date()
+            }, {
+                where: { ticketNumber },
+                transaction
+            });
+
+            // Notify admin
+            const adminSocketId = connectionManager.getAdminSocket(ticket.adminId);
+            if (adminSocketId) {
+                io.to(adminSocketId).emit('ticketUpdated', {
+                    ticketNumber,
+                    status: 'in_progress'
+                });
+            }
+
+            await transaction.commit();
+            
+            // Send confirmation to user
+            socket.emit('ticketSubmitted', {
+                success: true,
+                ticketNumber
+            });
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
     },
 
     handleUserMessage: async (socket, io, { message, targetAdminId, senderUserId, isOptionResponse, optionValue }) => {

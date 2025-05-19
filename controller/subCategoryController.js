@@ -82,7 +82,6 @@ const createData = async (req, res) => {
       });
     }
 
-    // Create subcategory
     const subCategory = await SubCategory.create({
       name,
       categoryId
@@ -161,7 +160,6 @@ const updateData = async (req, res) => {
       ...req.body
     };
 
-    // If categoryId is being updated, check if it exists
     if (req.body.categoryId && req.body.categoryId !== subCategory.categoryId) {
       const category = await Category.findByPk(req.body.categoryId);
       if (!category) {
@@ -172,7 +170,6 @@ const updateData = async (req, res) => {
       }
     }
 
-    // If name is being updated, check if it already exists
     if (req.body.name && req.body.name !== subCategory.name) {
       const existingSubCategory = await SubCategory.findOne({
         where: { name: req.body.name },

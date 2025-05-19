@@ -28,6 +28,7 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 db.admin = require("./adminModel.js")(sequelize, DataTypes);
 db.user = require("./userModel.js")(sequelize, DataTypes);
+db.ticketSupport = require("./ticketSupportModel.js")(sequelize, DataTypes);
 db.chatRoom = require("./chatRoomModel.js")(sequelize, DataTypes);
 db.chatMessage = require("./chatMessageModel.js")(sequelize, DataTypes);
 db.category = require("./categoryModel.js")(sequelize, DataTypes);
@@ -102,6 +103,22 @@ function setupAssociations() {
     foreignKey: "subCategoryId",
     as: "subCategory",
     constraints: true,
+  });
+   db.ticketSupport.belongsTo(db.user, {
+    foreignKey: 'userId',
+    as: 'user',
+    onDelete: 'CASCADE'
+  });
+
+  db.ticketSupport.belongsTo(db.admin, {
+    foreignKey: 'adminId',
+    as: 'admin',
+    onDelete: 'CASCADE'
+  });
+    db.ticketSupport.belongsTo(db.chatRoom, {
+    foreignKey: 'roomId',
+    as: 'chatRooms',
+    onDelete: 'CASCADE'
   });
 }
 
