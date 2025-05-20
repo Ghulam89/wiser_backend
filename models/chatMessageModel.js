@@ -64,12 +64,7 @@ module.exports = (sequelize, DataTypes) => {
         }
     });
 
-    ChatMessage.associate = (models) => {
-        ChatMessage.belongsTo(models.chatRoom, { 
-            foreignKey: 'roomId',
-            as: 'room'
-        });
-    };
+   
 
     return ChatMessage;
 };

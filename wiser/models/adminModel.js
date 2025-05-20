@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'Super Admin'
     },
      permissions: {
-      type: DataTypes.TEXT,
+      type: DataTypes.JSON,
       get() {
         const rawValue = this.getDataValue('permissions');
         try {
@@ -21,6 +21,10 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+     profile: {
       type: DataTypes.TEXT,
       allowNull: true,
     },

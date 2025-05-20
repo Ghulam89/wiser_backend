@@ -88,7 +88,7 @@ const createData = async (req, res) => {
     //   });
     // }
 
- const { name, email, password,role} = req.body;
+ const { name, email, password,role,description} = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -124,6 +124,7 @@ const createData = async (req, res) => {
       email: lowerCaseEmail,
       password: password,
       role: adminRole,
+      description:description,
       permissions
     });
 
@@ -408,7 +409,7 @@ const getDataById = async (req, res) => {
 
     let data = await Admin.findOne({
       where: { id: id },
-      attributes: ['id', 'name', 'email', 'role', 'permissions', 'lastLogin']
+      attributes: ['id', 'name', 'email', 'role','description', 'permissions', 'lastLogin']
     });
 
     if (!data) {

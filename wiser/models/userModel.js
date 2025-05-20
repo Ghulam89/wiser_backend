@@ -56,7 +56,23 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.TEXT,
             allowNull: true,
         },
+        FrontSideFileType:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         FrontSideFileZise:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
         CPRBackSide:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         BackSideFileType:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         BackSideFileSize:{
             type: DataTypes.TEXT,
             allowNull: true,
         },
@@ -64,7 +80,23 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.TEXT,
             allowNull: true,
         },
+         CPRReaderFileType:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         CPRReaderFileSize:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
         passport:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         passportFileType:{
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+         passportFileSize:{
             type: DataTypes.TEXT,
             allowNull: true,
         },
@@ -168,6 +200,11 @@ module.exports=(sequelize,DataTypes)=>{
             type: DataTypes.TEXT,
             allowNull: true,
             defaultValue:'active'
+        },
+            unverified: {
+            type: DataTypes.BOOLEAN,
+            allowNull: true,
+            defaultValue:true
         }
     }, {
         underscored: false,

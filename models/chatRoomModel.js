@@ -29,15 +29,7 @@ module.exports = (sequelize, DataTypes) => {
         }
     });
 
-    ChatRoom.associate = (models) => {
-        ChatRoom.belongsTo(models.admin, { foreignKey: 'adminId', as: 'admin' });
-        ChatRoom.belongsTo(models.user, { foreignKey: 'userId', as: 'user' });
-        ChatRoom.hasMany(models.chatMessage, { 
-            foreignKey: 'roomId', 
-            as: 'messages',
-            onDelete: 'CASCADE'
-        });
-    };
+   
 
     return ChatRoom;
 };

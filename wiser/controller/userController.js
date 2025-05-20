@@ -448,6 +448,20 @@ const loginData = async (req, res) => {
       });
     }
 
+
+      if (user.unverified) {
+      return res.status(403).json({
+        status: "fail",
+        message: "Account not verified. Please verify your account.",
+      });
+    }
+      if (user.status !== 'active') {
+      return res.status(403).json({
+        status: "fail",
+        message: "Account not active. Please contact your support.",
+      });
+    }
+
     if (user.isMarkedForDeletion) {
       const daysLeft = Math.ceil(
         (new Date(user.deletionDate) - new Date()) / (1000 * 60 * 60 * 24)
@@ -487,7 +501,7 @@ const loginData = async (req, res) => {
           message: "Account blocked for 30 minutes due to failed attempts",
         });
       }
-
+      
       return res.status(401).json({
         status: "fail",
         message: `Wrong password. ${
