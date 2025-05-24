@@ -29,6 +29,8 @@ const subCategoryRouter = require("./routes/subCategoryRoutes.js");
 const servieRouter = require("./routes/serviceRoutes.js");
 const chatRouter = require("./routes/chatRoutes.js");
 const ticketSupportRoutes = require("./routes/ticketSupportRoutes.js");
+const subscriptionPlanRoutes = require("./routes/subscriptionPlanRoutes.js");
+const membershipDeadlineRouters = require("./routes/membershipDeadlineRoutes.js");
 const { user} = require("./models/index.js");
 const { Op } = require("sequelize");
 const initializeSocket = require("./sockets/chat.js");
@@ -63,6 +65,8 @@ app.use("/subCategory", subCategoryRouter);
 app.use("/admin", adminRouter);
 app.use("/chat", chatRouter);
 app.use("/ticketSupport", ticketSupportRoutes);
+app.use("/subscription", subscriptionPlanRoutes);
+app.use("/membership", membershipDeadlineRouters); 
 // Root route
 app.get("/", (req, res) => {
   res.status(200).json({

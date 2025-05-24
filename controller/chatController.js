@@ -125,7 +125,9 @@ const chatController = {
     },
 
     getRoomMessages: async (req, res) => {
+
         try {
+            
             const { roomId } = req.params;
             const messages = await db.chatMessage.findAll({
                 where: { roomId },

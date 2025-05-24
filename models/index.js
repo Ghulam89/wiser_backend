@@ -35,6 +35,7 @@ db.category = require("./categoryModel.js")(sequelize, DataTypes);
 db.subCategory = require("./subCategoryModel.js")(sequelize, DataTypes);
 db.service = require("./serviceModel.js")(sequelize, DataTypes);
 db.auditLog = require("./auditLogModel.js")(sequelize, DataTypes);
+db.subcriptionPlan = require("./subcriptionPlanModel.js")(sequelize, DataTypes);
 
 // Define associations
 function setupAssociations() {

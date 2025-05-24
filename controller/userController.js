@@ -293,6 +293,7 @@ const verifyOTP = async (req, res) => {
     }
 
     user.isVerified = true;
+    user.unverified = false;
     user.otp = null;
     user.otpExpires = null;
     await user.save();
